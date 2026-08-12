@@ -9,11 +9,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.livefutar.app.data.ApiKeyManager
-import com.livefutar.app.data.ApiService
+import com.livefutar.app.data.FootballApiService
 import com.livefutar.app.model.HighlightModel
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.LiveFutarBottomBar
@@ -23,8 +28,9 @@ import com.livefutar.app.ui.screens.MatchDetailScreen
 import com.livefutar.app.ui.screens.SettingsScreen
 import com.livefutar.app.ui.theme.LiveFutarTheme
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,7 +38,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             LiveFutarTheme {
                 var currentScreen by remember { mutableStateOf("home") }
-                var selectedMatch by remember { mutableState<MatchModel?>(null) }
+                var selectedMatch by remember { mutableStateOf<MatchModel?>(null) }
                 
                 var matches by remember { mutableStateOf<List<MatchModel>>(emptyList()) }
                 var highlights by remember { mutableStateOf<List<HighlightModel>>(emptyList()) }
@@ -40,7 +46,15 @@ class MainActivity : ComponentActivity() {
                 var errorMessage by remember { mutableStateOf<String?>(null) }
 
                 val context = androidx.compose.ui.platform.LocalContext.current
-                val apiService = remember { ApiService.create() }
+                
+                // Retrofit példányosítás az éles API-hoz
+                val apiService = remember {
+                    Retrofit.Builder()
+                        .baseUrl("https://api.highlightly.net/")
+                        .addConverterFactory(GsonConverterFactory.create())
+                        .build()
+                        .create(FootballApiService::class.java)
+                }
 
                 // Adatok lekérése élesben az API-ról
                 LaunchedEffect(Unit) {
