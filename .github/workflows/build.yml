@@ -20,10 +20,14 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Gradle Wrapper generálása (7.5-ös verzió) és Build
+    - name: Gradle 8.2 kézi letöltése és beállítása
       run: |
-        gradle wrapper --gradle-version 7.5
-        ./gradlew assembleDebug
+        wget https://services.gradle.org/distributions/gradle-8.2-bin.zip
+        unzip gradle-8.2-bin.zip
+        echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
+
+    - name: Debug APK építése
+      run: gradle assembleDebug
 
     - name: APK feltöltése artefaktumként
       uses: actions/upload-artifact@v4
