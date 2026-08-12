@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.livefutar.app.model.HighlightModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoPlayerCard(highlight: HighlightModel, onClick: () -> Unit) {
     Card(
@@ -27,7 +28,6 @@ fun VideoPlayerCard(highlight: HighlightModel, onClick: () -> Unit) {
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            // Videó előnézet doboz lejátszás jelzéssel
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -45,7 +45,6 @@ fun VideoPlayerCard(highlight: HighlightModel, onClick: () -> Unit) {
             
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Kiemelés címe
             Text(
                 text = highlight.title ?: "Gólklip / Összefoglaló",
                 fontSize = 14.sp,
