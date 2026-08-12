@@ -30,7 +30,7 @@ fun MatchCard(match: MatchModel, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = match.status ?: match.time ?: "–",
+                text = match.statusText ?: "–",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
@@ -42,14 +42,14 @@ fun MatchCard(match: MatchModel, onClick: () -> Unit) {
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = match.homeTeam ?: "Hazai csapat",
+                    text = match.homeTeam?.name ?: "Hazai csapat",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = match.awayTeam ?: "Vendég csapat",
+                    text = match.awayTeam?.name ?: "Vendég csapat",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
@@ -61,14 +61,14 @@ fun MatchCard(match: MatchModel, onClick: () -> Unit) {
                 modifier = Modifier.width(30.dp)
             ) {
                 Text(
-                    text = "${match.homeScore ?: 0}",
+                    text = match.homeScoreDisplay,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${match.awayScore ?: 0}",
+                    text = match.awayScoreDisplay,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
