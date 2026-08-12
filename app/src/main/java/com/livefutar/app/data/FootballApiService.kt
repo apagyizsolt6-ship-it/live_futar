@@ -1,65 +1,33 @@
 package com.livefutar.app.data
 
+import com.livefutar.app.model.HighlightModel
+import com.livefutar.app.model.MatchModel
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
-import retrofit2.http.Path
-import retrofit2.http.Query
+import retrofit2.http.Header
 
-interface FootballApiService {
+interface ApiService {
 
-    @GET("countries")
-    suspend fun getCountries(
-        @Query("name") name: String? = null
-    ): Any
-
-    @GET("leagues/{id}")
-    suspend fun getLeagueById(
-        @Path("id") id: Int
-    ): Any
-
-    @GET("teams/{id}")
-    suspend fun getTeamById(
-        @Path("id") id: Int
-    ): Any
-
-    @GET("teams/statistics/{id}")
-    suspend fun getTeamStatistics(
-        @Path("id") id: Int,
-        @Query("fromDate") fromDate: String,
-        @Query("timezone") timezone: String? = "Etc/UTC"
-    ): Any
+    @GET("matches")
+    suspend fun getMatches(
+        @Header("x-api-key") apiKey: String
+    ): List<MatchModel>
 
     @GET("highlights")
-    suspend fun getHighlights(): Any
+    suspend fun getHighlights(
+        @Header("x-api-key") apiKey: String
+    ): List<HighlightModel>
 
-    @GET("highlights/{id}")
-    suspend fun getHighlightById(
-        @Path("id") id: Int
-    ): Any
+    companion object {
+        private const val BASE_URL = "https://api.highlightly.net/" // Ide jön az éles API alapcíme
 
-    @GET("lineups/{matchId}")
-    suspend fun getLineups(
-        @Path("matchId") matchId: Int
-    ): Any
-
-    @GET("last-five-matches")
-    suspend fun getLastFiveMatches(
-        @Query("teamId") teamId: Int
-    ): Any
-
-    @GET("players")
-    suspend fun getPlayers(
-        @Query("name") name: String? = null,
-        @Query("limit") limit: Int = 100,
-        @Query("offset") offset: Int = 0
-    ): Any
-
-    @GET("players/{id}/statistics")
-    suspend fun getPlayerStatistics(
-        @Path("id") id: Int
-    ): Any
-
-    @GET("box-score/{matchId}")
-    suspend fun getBoxScore(
-        @Path("matchId") matchId: Int
-    ): Any
+        fun create(): ApiService {
+            return Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+                .create(ApiService::class.java)
+        }
+    }
 }
