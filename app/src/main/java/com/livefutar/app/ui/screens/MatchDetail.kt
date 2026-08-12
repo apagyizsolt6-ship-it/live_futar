@@ -18,7 +18,12 @@ fun MatchDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("${match.homeTeam ?: ""} vs ${match.awayTeam ?: ""}", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        "${match.homeTeam?.name ?: ""} vs ${match.awayTeam?.name ?: ""}",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Text("←", fontWeight = FontWeight.Bold)
@@ -51,14 +56,14 @@ fun MatchDetailScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "${match.homeScore ?: 0} : ${match.awayScore ?: 0}",
+                        text = "${match.homeScoreDisplay} : ${match.awayScoreDisplay}",
                         style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Státusz: ${match.status ?: match.time ?: "Ismeretlen"}",
+                        text = "Státusz: ${match.statusText ?: "Ismeretlen"}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
