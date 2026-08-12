@@ -11,7 +11,9 @@ import com.livefutar.app.data.ApiKeyManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(
+    onApiKeySaved: () -> Unit = {}
+) {
     val context = LocalContext.current
     var apiKey by remember { mutableStateOf(ApiKeyManager.getApiKey(context)) }
     var savedMessage by remember { mutableStateOf(false) }
@@ -43,7 +45,10 @@ fun SettingsScreen() {
 
             OutlinedTextField(
                 value = apiKey,
-                onValueChange = { apiKey = it },
+                onValueChange = {
+                    apiKey = it
+                    savedMessage = false
+                },
                 label = { Text("API Kulcs megadása") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
@@ -53,6 +58,7 @@ fun SettingsScreen() {
                 onClick = {
                     ApiKeyManager.saveApiKey(context, apiKey)
                     savedMessage = true
+                    onApiKeySaved()
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -61,7 +67,7 @@ fun SettingsScreen() {
 
             if (savedMessage) {
                 Text(
-                    text = "Kulcs sikeresen elmentve!",
+                    text = "Kulcs sikeresen elmentve! Adatok újratöltése...",
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium
                 )
