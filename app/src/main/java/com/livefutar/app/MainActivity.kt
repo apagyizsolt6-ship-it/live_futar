@@ -4,10 +4,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.livefutar.app.data.ApiKeyManager
+import com.livefutar.app.data.ApiService
 import com.livefutar.app.model.HighlightModel
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.LiveFutarBottomBar
@@ -16,6 +22,9 @@ import com.livefutar.app.ui.screens.HomeScreen
 import com.livefutar.app.ui.screens.MatchDetailScreen
 import com.livefutar.app.ui.screens.SettingsScreen
 import com.livefutar.app.ui.theme.LiveFutarTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,19 +32,36 @@ class MainActivity : ComponentActivity() {
         setContent {
             LiveFutarTheme {
                 var currentScreen by remember { mutableStateOf("home") }
-                var selectedMatch by remember { mutableStateOf<MatchModel?>(null) }
+                var selectedMatch by remember { mutableState<MatchModel?>(null) }
+                
+                var matches by remember { mutableStateOf<List<MatchModel>>(emptyList()) }
+                var highlights by remember { mutableStateOf<List<HighlightModel>>(emptyList()) }
+                var isLoading by remember { mutableStateOf(true) }
+                var errorMessage by remember { mutableStateOf<String?>(null) }
 
-                // Teszt adatok
-                val sampleMatches = listOf(
-                    MatchModel(1, "78'", "LIVE", "Real Madrid", "Barcelona", 2, 1),
-                    MatchModel(2, "22'", "LIVE", "Arsenal", "Chelsea", 0, 0),
-                    MatchModel(3, "Holnap", "UPCOMING", "Juventus", "AC Milan", 0, 0)
-                )
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val apiService = remember { ApiService.create() }
 
-                val sampleHighlights = listOf(
-                    HighlightModel(1, "Real Madrid vs Barcelona - Gólklipek", null, null, null),
-                    HighlightModel(2, "Arsenal vs Chelsea - Legjobb pillanatok", null, null, null)
-                )
+                // Adatok lekérése élesben az API-ról
+                LaunchedEffect(Unit) {
+                    val apiKey = ApiKeyManager.getApiKey(context)
+                    if (apiKey.isBlank()) {
+                        errorMessage = "Kérlek add meg az API kulcsot a Beállításokban!"
+                        isLoading = false
+                        return@LaunchedEffect
+                    }
+
+                    try {
+                        withContext(Dispatchers.IO) {
+                            matches = apiService.getMatches(apiKey)
+                            highlights = apiService.getHighlights(apiKey)
+                        }
+                    } catch (e: Exception) {
+                        errorMessage = "Hiba történt a adatok betöltésekor: ${e.localizedMessage}"
+                    } finally {
+                        isLoading = false
+                    }
+                }
 
                 Scaffold(
                     bottomBar = {
@@ -49,25 +75,36 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) { paddingValues ->
-                    Box(modifier = Modifier.padding(paddingValues)) {
-                        if (selectedMatch != null) {
-                            MatchDetailScreen(
-                                match = selectedMatch!!,
-                                onBackClick = { selectedMatch = null }
-                            )
-                        } else {
-                            when (currentScreen) {
-                                "home" -> HomeScreen(
-                                    matches = sampleMatches,
-                                    onMatchClick = { match -> selectedMatch = match }
+                    Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                        when {
+                            isLoading -> {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                            errorMessage != null && matches.isEmpty() -> {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(text = errorMessage!!)
+                                }
+                            }
+                            selectedMatch != null -> {
+                                MatchDetailScreen(
+                                    match = selectedMatch!!,
+                                    onBackClick = { selectedMatch = null }
                                 )
-                                "highlights" -> HighlightsScreen(
-                                    highlights = sampleHighlights,
-                                    onHighlightClick = { highlight ->
-                                        // Itt majd nyithatjuk a videó lejátszót
-                                    }
-                                )
-                                "settings" -> SettingsScreen()
+                            }
+                            else -> {
+                                when (currentScreen) {
+                                    "home" -> HomeScreen(
+                                        matches = matches,
+                                        onMatchClick = { match -> selectedMatch = match }
+                                    )
+                                    "highlights" -> HighlightsScreen(
+                                        highlights = highlights,
+                                        onHighlightClick = { highlight -> }
+                                    )
+                                    "settings" -> SettingsScreen()
+                                }
                             }
                         }
                     }
