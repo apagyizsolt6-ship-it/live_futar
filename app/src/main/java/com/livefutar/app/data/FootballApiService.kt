@@ -7,7 +7,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Header
 
-interface ApiService {
+interface FootballApiService {
 
     @GET("matches")
     suspend fun getMatches(
@@ -22,12 +22,12 @@ interface ApiService {
     companion object {
         private const val BASE_URL = "https://api.highlightly.net/" // Ide jön az éles API alapcíme
 
-        fun create(): ApiService {
+        fun create(): FootballApiService {
             return Retrofit.Builder()
                 .baseUrl(BASE_URL)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
-                .create(ApiService::class.java)
+                .create(FootballApiService::class.java)
         }
     }
 }
