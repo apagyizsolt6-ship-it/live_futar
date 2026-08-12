@@ -20,9 +20,9 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Gradle Wrapper generálása (8.0-s verzió) és Build
+    - name: Gradle Wrapper generálása (7.5-ös verzió) és Build
       run: |
-        gradle wrapper --gradle-version 8.0
+        gradle wrapper --gradle-version 7.5
         ./gradlew assembleDebug
 
     - name: APK feltöltése artefaktumként
