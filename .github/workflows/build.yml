@@ -20,11 +20,10 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Gradle telepítése a szerveren
-      run: sudo apt-get update && sudo apt-get install -y gradle
-
-    - name: Debug APK építése
-      run: gradle assembleDebug
+    - name: Gradle Wrapper generálása és Build indítása
+      run: |
+        gradle wrapper --gradle-version 8.4
+        ./gradlew assembleDebug
 
     - name: APK feltöltése artefaktumként
       uses: actions/upload-artifact@v4
