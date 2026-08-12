@@ -47,7 +47,6 @@ class MainActivity : ComponentActivity() {
 
                 val context = androidx.compose.ui.platform.LocalContext.current
                 
-                // Retrofit példányosítás az éles API-hoz
                 val apiService = remember {
                     Retrofit.Builder()
                         .baseUrl("https://api.highlightly.net/")
@@ -56,7 +55,6 @@ class MainActivity : ComponentActivity() {
                         .create(FootballApiService::class.java)
                 }
 
-                // Adatok lekérése élesben az API-ról
                 LaunchedEffect(Unit) {
                     val apiKey = ApiKeyManager.getApiKey(context)
                     if (apiKey.isBlank()) {
@@ -71,7 +69,7 @@ class MainActivity : ComponentActivity() {
                             highlights = apiService.getHighlights(apiKey)
                         }
                     } catch (e: Exception) {
-                        errorMessage = "Hiba történt a adatok betöltésekor: ${e.localizedMessage}"
+                        errorMessage = "Hiba történt az adatok betöltésekor: ${e.localizedMessage}"
                     } finally {
                         isLoading = false
                     }
