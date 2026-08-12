@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.livefutar.app.model.MatchModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatchCard(match: MatchModel, onClick: () -> Unit) {
     Card(
@@ -28,7 +29,6 @@ fun MatchCard(match: MatchModel, onClick: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Meccs státusza vagy ideje (pl. "78'" vagy "Élő")
             Text(
                 text = match.status ?: match.time ?: "–",
                 fontSize = 12.sp,
@@ -37,7 +37,6 @@ fun MatchCard(match: MatchModel, onClick: () -> Unit) {
                 modifier = Modifier.width(55.dp)
             )
 
-            // Csapatok nevei
             Column(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.Start
@@ -57,7 +56,6 @@ fun MatchCard(match: MatchModel, onClick: () -> Unit) {
                 )
             }
 
-            // Góleredmény
             Column(
                 horizontalAlignment = Alignment.End,
                 modifier = Modifier.width(30.dp)
