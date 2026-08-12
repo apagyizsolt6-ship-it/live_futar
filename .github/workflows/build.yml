@@ -20,11 +20,11 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Gradle futtatási jog megadása
-      run: chmod +x gradlew
+    - name: Gradle telepítése a szerveren
+      run: sudo apt-get update && sudo apt-get install -y gradle
 
     - name: Debug APK építése
-      run: ./gradlew assembleDebug
+      run: gradle assembleDebug
 
     - name: APK feltöltése artefaktumként
       uses: actions/upload-artifact@v4
