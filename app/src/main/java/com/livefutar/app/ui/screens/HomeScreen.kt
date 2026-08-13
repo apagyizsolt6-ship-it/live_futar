@@ -110,12 +110,6 @@ fun HomeScreen(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                         ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            borderColor = if (showOnlyLive) AccentGreen else MaterialTheme.colorScheme.outline,
-                            selectedBorderColor = AccentGreen,
-                            enabled = true,
-                            selected = showOnlyLive
-                        ),
                         modifier = Modifier.padding(end = 4.dp)
                     )
                     Text(
@@ -155,6 +149,7 @@ fun HomeScreen(
                 )
             }
 
+            // Élő szekció a lista tetején
             if (!showOnlyLive && liveMatches.isNotEmpty() && !showOnlyFavorites) {
                 item {
                     LiveSectionHeader(count = liveMatches.size)
@@ -171,7 +166,7 @@ fun HomeScreen(
                 }
                 item {
                     Spacer(modifier = Modifier.height(6.dp))
-                    HorizontalDivider(
+                    Divider(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
                     )
