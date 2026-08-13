@@ -8,13 +8,19 @@ data class MatchModel(
     val homeTeam: TeamModel?,
     val awayTeam: TeamModel?,
     val league: LeagueModel?,
-    val state: MatchState?
+    val country: CountryModel? = null,
+    val state: MatchState?,
+    val round: String? = null
 ) {
     val homeScoreDisplay: String
-        get() = state?.score?.current?.split("-")?.getOrNull(0)?.trim() ?: "-"
+        get() = state?.score?.current?.split("-")?.getOrNull(0)?.trim()
+            ?: state?.score?.current?.split("–")?.getOrNull(0)?.trim()
+            ?: "-"
 
     val awayScoreDisplay: String
-        get() = state?.score?.current?.split("-")?.getOrNull(1)?.trim() ?: "-"
+        get() = state?.score?.current?.split("-")?.getOrNull(1)?.trim()
+            ?: state?.score?.current?.split("–")?.getOrNull(1)?.trim()
+            ?: "-"
 
     val hasScore: Boolean
         get() = state?.score?.current != null
@@ -22,8 +28,14 @@ data class MatchModel(
     val kickoffTime: String
         get() = DateUtils.kickoffTime(date)
 
-    // Az API angol nyelvű, gépi státuszait fordítjuk le és kategorizáljuk,
-    // hogy a UI tudja, mikor mutasson "élő" jelzést.
+    /** Ország + bajnokság megjelenítéshez (pl. "USA · Leagues Cup") */
+    val leagueDisplayName: String
+        get() {
+            val leagueName = league?.name ?: "Egyéb mérkőzések"
+            val countryName = country?.name?.takeIf { it.isNotBlank() && it != "World" }
+            return if (countryName != null) "$countryName · $leagueName" else leagueName
+        }
+
     val statusLabel: String
         get() = when (state?.description) {
             "Not started" -> "Nem kezdődött el"
@@ -64,6 +76,19 @@ data class MatchModel(
 
     val isNotStarted: Boolean
         get() = state?.description == "Not started" || state?.description == null
+
+    /** Perc kijelzés élő meccsekhez (ha van clock) */
+    val liveMinuteLabel: String?
+        get() {
+            val clock = state?.clock ?: return null
+            if (!isLive) return null
+            return when (state?.description) {
+                "Half time" -> "SZ"
+                "Break time" -> "SZ"
+                "Penalties" -> "11"
+                else -> "$clock'"
+            }
+        }
 }
 
 data class MatchState(
@@ -82,4 +107,10 @@ data class LeagueModel(
     val name: String?,
     val logo: String?,
     val season: Int?
+)
+
+data class CountryModel(
+    val code: String?,
+    val name: String?,
+    val logo: String?
 )
