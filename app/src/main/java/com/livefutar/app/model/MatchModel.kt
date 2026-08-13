@@ -1,6 +1,7 @@
 package com.livefutar.app.model
 
 import com.livefutar.app.util.DateUtils
+import com.livefutar.app.util.HungarianNames
 
 data class MatchModel(
     val id: Long,
@@ -14,12 +15,12 @@ data class MatchModel(
 ) {
     val homeScoreDisplay: String
         get() = state?.score?.current?.split("-")?.getOrNull(0)?.trim()
-            ?: state?.score?.current?.split("–")?.getOrNull(0)?.trim()
+            ?: state?.score?.current?.split("-")?.getOrNull(0)?.trim()
             ?: "-"
 
     val awayScoreDisplay: String
         get() = state?.score?.current?.split("-")?.getOrNull(1)?.trim()
-            ?: state?.score?.current?.split("–")?.getOrNull(1)?.trim()
+            ?: state?.score?.current?.split("-")?.getOrNull(1)?.trim()
             ?: "-"
 
     val hasScore: Boolean
@@ -28,34 +29,30 @@ data class MatchModel(
     val kickoffTime: String
         get() = DateUtils.kickoffTime(date)
 
-    /** Ország + bajnokság megjelenítéshez (pl. "USA · Leagues Cup") */
+    /** Orszag + bajnoksag magyarul (pl. "Anglia · Premier League") */
     val leagueDisplayName: String
-        get() {
-            val leagueName = league?.name ?: "Egyéb mérkőzések"
-            val countryName = country?.name?.takeIf { it.isNotBlank() && it != "World" }
-            return if (countryName != null) "$countryName · $leagueName" else leagueName
-        }
+        get() = HungarianNames.display(country?.name, league?.name)
 
     val statusLabel: String
         get() = when (state?.description) {
-            "Not started" -> "Nem kezdődött el"
-            "First half" -> "1. félidő"
-            "Second half" -> "2. félidő"
-            "Half time" -> "Félidő"
-            "Extra time" -> "Hosszabbítás"
-            "Break time" -> "Szünet"
-            "Penalties" -> "Büntetők"
-            "Finished" -> "Vége"
-            "Finished after penalties" -> "Vége (11-esek)"
-            "Finished after extra time" -> "Vége (h.u.)"
+            "Not started" -> "Nem kezdodott el"
+            "First half" -> "1. felido"
+            "Second half" -> "2. felido"
+            "Half time" -> "Felido"
+            "Extra time" -> "Hosszabbitas"
+            "Break time" -> "Sziunet"
+            "Penalties" -> "Buntetok"
+            "Finished" -> "Vege"
+            "Finished after penalties" -> "Vege (11-esek)"
+            "Finished after extra time" -> "Vege (h.u.)"
             "Postponed" -> "Elhalasztva"
-            "Suspended" -> "Felfüggesztve"
-            "Cancelled" -> "Törölve"
+            "Suspended" -> "Felfuggesztve"
+            "Cancelled" -> "Torolve"
             "Awarded" -> "Igazolva"
-            "Interrupted" -> "Megszakítva"
-            "Abandoned" -> "Félbeszakadt"
+            "Interrupted" -> "Megszakitva"
+            "Abandoned" -> "Felbeszakadt"
             "In progress" -> "Folyamatban"
-            "To be announced" -> "Egyeztetés alatt"
+            "To be announced" -> "Egyeztetes alatt"
             null -> "Ismeretlen"
             else -> state.description
         }
@@ -77,7 +74,7 @@ data class MatchModel(
     val isNotStarted: Boolean
         get() = state?.description == "Not started" || state?.description == null
 
-    /** Perc kijelzés élő meccsekhez (ha van clock) */
+    /** Perc kijelzes elo meccsekhez */
     val liveMinuteLabel: String?
         get() {
             val clock = state?.clock ?: return null
@@ -86,7 +83,7 @@ data class MatchModel(
                 "Half time" -> "SZ"
                 "Break time" -> "SZ"
                 "Penalties" -> "11"
-                else -> "$clock'"
+                else -> clock.toString() + "'"
             }
         }
 }
