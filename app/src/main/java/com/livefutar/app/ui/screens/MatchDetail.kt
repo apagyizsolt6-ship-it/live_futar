@@ -32,7 +32,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-private enum class DetailTab { OVERVIEW, STATS, LINEUP, ODDS, H2H }
+private enum class DetailTab {
+    OVERVIEW,
+    STATS,
+    LINEUP,
+    ODDS,
+    H2H
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,58 +49,148 @@ fun MatchDetailScreen(
     onOpenBetSlip: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val apiService = remember { FootballApiService.create() }
+    val apiService = remember {
+        FootballApiService.create()
+    }
 
-    var events by remember(match.id) { mutableStateOf<List<MatchEventModel>>(emptyList()) }
-    var h2hMatches by remember(match.id) { mutableStateOf<List<MatchModel>>(emptyList()) }
-    var oddsItems by remember(match.id) { mutableStateOf<List<BookmakerOdd>>(emptyList()) }
-    var lineups by remember(match.id) { mutableStateOf<MatchLineups?>(null) }
-    var statistics by remember(match.id) { mutableStateOf<List<TeamStatistics>>(emptyList()) }
-    var isLoading by remember(match.id) { mutableStateOf(true) }
-    var selectedTab by remember { mutableStateOf(DetailTab.OVERVIEW) }
-    var slipCount by remember { mutableStateOf(BetSlipManager.count(context)) }
+    var events by remember(match.id) {
+        mutableStateOf<List<MatchEventModel>>(emptyList())
+    }
+
+    var h2hMatches by remember(match.id) {
+        mutableStateOf<List<MatchModel>>(emptyList())
+    }
+
+    var oddsItems by remember(match.id) {
+        mutableStateOf<List<BookmakerOdd>>(emptyList())
+    }
+
+    var lineups by remember(match.id) {
+        mutableStateOf<MatchLineups?>(null)
+    }
+
+    var statistics by remember(match.id) {
+        mutableStateOf<List<TeamStatistics>>(emptyList())
+    }
+
+    var isLoading by remember(match.id) {
+        mutableStateOf(true)
+    }
+
+    var selectedTab by remember {
+        mutableStateOf(DetailTab.OVERVIEW)
+    }
+
+    var slipCount by remember {
+        mutableStateOf(
+            BetSlipManager.count(context)
+        )
+    }
 
     LaunchedEffect(match.id) {
         isLoading = true
+
         val apiKey = ApiKeyManager.getApiKey(context)
+
         if (apiKey.isNotBlank()) {
             withContext(Dispatchers.IO) {
+
                 events = try {
-                    apiService.getMatchEvents(apiKey, match.id).sortedBy { it.minuteSortKey }
-                } catch (_: Exception) { emptyList() }
+                    apiService
+                        .getMatchEvents(
+                            apiKey,
+                            match.id
+                        )
+                        .sortedBy {
+                            it.minuteSortKey
+                        }
+                } catch (_: Exception) {
+                    emptyList()
+                }
 
                 val homeId = match.homeTeam?.id
                 val awayId = match.awayTeam?.id
-                h2hMatches = if (homeId != null && awayId != null) {
-                    try {
-                        apiService.getHeadToHead(apiKey, homeId, awayId)
-                            .filter { it.id != match.id }.take(8)
-                    } catch (_: Exception) { emptyList() }
-                } else emptyList()
+
+                h2hMatches =
+                    if (homeId != null && awayId != null) {
+                        try {
+                            apiService
+                                .getHeadToHead(
+                                    apiKey,
+                                    homeId,
+                                    awayId
+                                )
+                                .filter {
+                                    it.id != match.id
+                                }
+                                .take(8)
+                        } catch (_: Exception) {
+                            emptyList()
+                        }
+                    } else {
+                        emptyList()
+                    }
 
                 oddsItems = try {
-                    val resp = apiService.getOdds(
-                        apiKey,
-                        match.id,
-                        oddsType = if (match.isLive) "live" else "prematch"
-                    )
-                    resp.data?.firstOrNull()?.odds ?: emptyList()
+                    val response =
+                        apiService.getOdds(
+                            apiKey,
+                            match.id,
+                            oddsType =
+                                if (match.isLive) {
+                                    "live"
+                                } else {
+                                    "prematch"
+                                }
+                        )
+
+                    response
+                        .data
+                        ?.firstOrNull()
+                        ?.odds
+                        ?: emptyList()
+
                 } catch (_: Exception) {
+
                     try {
-                        val resp = apiService.getOdds(apiKey, match.id, oddsType = "prematch")
-                        resp.data?.firstOrNull()?.odds ?: emptyList()
-                    } catch (_: Exception) { emptyList() }
+                        val response =
+                            apiService.getOdds(
+                                apiKey,
+                                match.id,
+                                oddsType = "prematch"
+                            )
+
+                        response
+                            .data
+                            ?.firstOrNull()
+                            ?.odds
+                            ?: emptyList()
+
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
                 }
 
                 lineups = try {
-                    apiService.getLineups(apiKey, match.id)
-                } catch (_: Exception) { null }
+                    apiService.getLineups(
+                        apiKey,
+                        match.id
+                    )
+                } catch (_: Exception) {
+                    null
+                }
 
                 statistics = try {
-                    apiService.getMatchStatistics(apiKey, match.id)
-                } catch (_: Exception) { emptyList() }
+                    apiService.getMatchStatistics(
+                        apiKey,
+                        match.id
+                    )
+                } catch (_: Exception) {
+                    emptyList()
+                }
             }
         }
+
         isLoading = false
     }
 
@@ -103,46 +199,67 @@ fun MatchDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        match.leagueDisplayName,
+                        text = match.leagueDisplayName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 },
+
                 navigationIcon = {
                     Text(
-                        "<-",
+                        text = "<-",
                         fontSize = 22.sp,
                         modifier = Modifier
-                            .clickable { onBackClick() }
+                            .clickable {
+                                onBackClick()
+                            }
                             .padding(horizontal = 12.dp)
                     )
                 },
+
                 actions = {
+
                     if (match.league?.id != null) {
                         Text(
-                            "Tabella",
+                            text = "Tabella",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
-                                .clickable { onStandingsClick(match) }
+                                .clickable {
+                                    onStandingsClick(match)
+                                }
                                 .padding(end = 8.dp)
                         )
                     }
+
                     if (slipCount > 0) {
                         Box(
                             modifier = Modifier
                                 .padding(end = 12.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(AccentGold.copy(alpha = 0.2f))
-                                .border(1.dp, AccentGold, RoundedCornerShape(10.dp))
-                                .clickable { onOpenBetSlip?.invoke() }
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .clip(
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .background(
+                                    AccentGold.copy(alpha = 0.2f)
+                                )
+                                .border(
+                                    1.dp,
+                                    AccentGold,
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .clickable {
+                                    onOpenBetSlip?.invoke()
+                                }
+                                .padding(
+                                    horizontal = 10.dp,
+                                    vertical = 4.dp
+                                )
                         ) {
                             Text(
-                                "Szelveny $slipCount",
+                                text = "Szelveny $slipCount",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = AccentGold
@@ -150,41 +267,75 @@ fun MatchDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor =
+                            MaterialTheme.colorScheme.surface
+                    )
             )
         }
     ) { padding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
+                .background(
+                    MaterialTheme.colorScheme.background
+                )
         ) {
+
             MatchScoreHeader(match)
 
             ScrollableTabRow(
-                selectedTabIndex = selectedTab.ordinal,
+                selectedTabIndex =
+                    selectedTab.ordinal,
                 edgePadding = 8.dp,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary
+                containerColor =
+                    MaterialTheme.colorScheme.surface,
+                contentColor =
+                    MaterialTheme.colorScheme.primary
             ) {
+
                 DetailTab.entries.forEach { tab ->
+
                     Tab(
                         selected = selectedTab == tab,
-                        onClick = { selectedTab = tab },
+
+                        onClick = {
+                            selectedTab = tab
+                        },
+
                         text = {
+
                             Text(
-                                when (tab) {
-                                    DetailTab.OVERVIEW -> "Osszegzes"
-                                    DetailTab.STATS -> "Stat"
-                                    DetailTab.LINEUP -> "Felallas"
-                                    DetailTab.ODDS -> "Odds"
-                                    DetailTab.H2H -> "H2H"
-                                },
+                                text =
+                                    when (tab) {
+                                        DetailTab.OVERVIEW ->
+                                            "Osszegzes"
+
+                                        DetailTab.STATS ->
+                                            "Stat"
+
+                                        DetailTab.LINEUP ->
+                                            "Felallas"
+
+                                        DetailTab.ODDS ->
+                                            "Odds"
+
+                                        DetailTab.H2H ->
+                                            "H2H"
+                                    },
+
                                 fontSize = 13.sp,
-                                fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Medium
+
+                                fontWeight =
+                                    if (selectedTab == tab) {
+                                        FontWeight.Bold
+                                    } else {
+                                        FontWeight.Medium
+                                    }
                             )
                         }
                     )
@@ -192,28 +343,64 @@ fun MatchDetailScreen(
             }
 
             if (isLoading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
-            } else {
-                when (selectedTab) {
-                    DetailTab.OVERVIEW -> OverviewTab(events)
-                    DetailTab.STATS -> StatsTab(statistics)
-                    DetailTab.LINEUP -> LineupTab(lineups, match)
-                    DetailTab.ODDS -> OddsTab(
-                        odds = oddsItems,
-                        match = match,
-                        onAddToSlip = { sel ->
-                            val ok = BetSlipManager.addSelection(context, sel)
-                            slipCount = BetSlipManager.count(context)
-                            Toast.makeText(
-                                context,
-                                if (ok) "Hozzaadva a szelvenyhez" else "Szelveny tele (max 10)",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
+
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color =
+                            MaterialTheme.colorScheme.primary
                     )
-                    DetailTab.H2H -> H2HTab(h2hMatches)
+                }
+
+            } else {
+
+                when (selectedTab) {
+
+                    DetailTab.OVERVIEW ->
+                        OverviewTab(events)
+
+                    DetailTab.STATS ->
+                        StatsTab(statistics)
+
+                    DetailTab.LINEUP ->
+                        LineupTab(
+                            lineups,
+                            match
+                        )
+
+                    DetailTab.ODDS ->
+                        OddsTab(
+                            odds = oddsItems,
+                            match = match,
+                            onAddToSlip = { selection ->
+
+                                val added =
+                                    BetSlipManager
+                                        .addSelection(
+                                            context,
+                                            selection
+                                        )
+
+                                slipCount =
+                                    BetSlipManager
+                                        .count(context)
+
+                                Toast.makeText(
+                                    context,
+                                    if (added) {
+                                        "Hozzaadva a szelvenyhez"
+                                    } else {
+                                        "Szelveny tele (max 10)"
+                                    },
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+
+                    DetailTab.H2H ->
+                        H2HTab(h2hMatches)
                 }
             }
         }
@@ -221,84 +408,196 @@ fun MatchDetailScreen(
 }
 
 @Composable
-private fun MatchScoreHeader(match: MatchModel) {
-    val borderColor = if (match.isLive) AccentGreen.copy(alpha = 0.55f)
-    else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+private fun MatchScoreHeader(
+    match: MatchModel
+) {
+    val borderColor =
+        if (match.isLive) {
+            AccentGreen.copy(alpha = 0.55f)
+        } else {
+            MaterialTheme
+                .colorScheme
+                .outline
+                .copy(alpha = 0.3f)
+        }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(12.dp)
-            .border(1.5.dp, borderColor, RoundedCornerShape(16.dp)),
+            .border(
+                1.5.dp,
+                borderColor,
+                RoundedCornerShape(16.dp)
+            ),
+
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    MaterialTheme.colorScheme.surface
+            )
     ) {
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+
+            horizontalAlignment =
+                Alignment.CenterHorizontally
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+
                 if (match.isLive) {
+
                     Box(
-                        Modifier
+                        modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
                             .background(AccentGreen)
                     )
-                    Spacer(Modifier.width(6.dp))
+
+                    Spacer(
+                        modifier = Modifier.width(6.dp)
+                    )
                 }
+
                 Text(
-                    text = if (match.isLive) {
-                        "ELO " + (match.liveMinuteLabel ?: "")
-                    } else match.statusLabel,
+                    text =
+                        if (match.isLive) {
+                            "ELO " +
+                                (match.liveMinuteLabel ?: "")
+                        } else {
+                            match.statusLabel
+                        },
+
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (match.isLive) AccentGreen else MaterialTheme.colorScheme.onSurfaceVariant
+
+                    fontWeight =
+                        FontWeight.Bold,
+
+                    color =
+                        if (match.isLive) {
+                            AccentGreen
+                        } else {
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                        }
                 )
             }
-            Spacer(Modifier.height(14.dp))
+
+            Spacer(
+                modifier = Modifier.height(14.dp)
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
-                TeamBlock(match.homeTeam, Modifier.weight(1f))
+
+                TeamBlock(
+                    team = match.homeTeam,
+                    modifier = Modifier.weight(1f)
+                )
+
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(horizontal = 8.dp)
+                    horizontalAlignment =
+                        Alignment.CenterHorizontally,
+
+                    modifier =
+                        Modifier.padding(
+                            horizontal = 8.dp
+                        )
                 ) {
+
                     Text(
-                        text = if (match.hasScore) {
-                            match.homeScoreDisplay + " : " + match.awayScoreDisplay
-                        } else "-",
+                        text =
+                            if (match.hasScore) {
+                                match.homeScoreDisplay +
+                                    " : " +
+                                    match.awayScoreDisplay
+                            } else {
+                                "-"
+                            },
+
                         fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (match.isLive) AccentGreen else MaterialTheme.colorScheme.onSurface
+
+                        fontWeight =
+                            FontWeight.Bold,
+
+                        color =
+                            if (match.isLive) {
+                                AccentGreen
+                            } else {
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurface
+                            }
                     )
-                    if (!match.isLive && !match.isFinished) {
+
+                    if (
+                        !match.isLive &&
+                        !match.isFinished
+                    ) {
                         Text(
-                            match.kickoffTime,
+                            text = match.kickoffTime,
                             fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.primary
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .primary
                         )
                     }
                 }
-                TeamBlock(match.awayTeam, Modifier.weight(1f))
+
+                TeamBlock(
+                    team = match.awayTeam,
+                    modifier = Modifier.weight(1f)
+                )
             }
-            if (match.isLive || match.isFinished) {
-                Spacer(Modifier.height(10.dp))
+
+            if (
+                match.isLive ||
+                match.isFinished
+            ) {
+
+                Spacer(
+                    modifier = Modifier.height(10.dp)
+                )
+
                 Box(
-                    Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                    modifier = Modifier
+                        .clip(
+                            RoundedCornerShape(8.dp)
+                        )
+                        .background(
+                            MaterialTheme
+                                .colorScheme
+                                .surfaceVariant
+                        )
+                        .padding(
+                            horizontal = 10.dp,
+                            vertical = 4.dp
+                        )
                 ) {
+
                     Text(
-                        match.statusLabel,
+                        text = match.statusLabel,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontWeight =
+                            FontWeight.Medium,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
                     )
                 }
             }
@@ -307,29 +606,56 @@ private fun MatchScoreHeader(match: MatchModel) {
 }
 
 @Composable
-private fun TeamBlock(team: TeamModel?, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+private fun TeamBlock(
+    team: TeamModel?,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment =
+            Alignment.CenterHorizontally
+    ) {
+
         if (!team?.logo.isNullOrBlank()) {
+
             AsyncImage(
                 model = team?.logo,
                 contentDescription = null,
-                modifier = Modifier.size(48.dp).clip(CircleShape),
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape),
                 contentScale = ContentScale.Fit
             )
+
         } else {
+
             Box(
-                Modifier
+                modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
+                    .background(
+                        MaterialTheme
+                            .colorScheme
+                            .surfaceVariant
+                    ),
+
+                contentAlignment =
+                    Alignment.Center
             ) {
-                Text("o", fontSize = 22.sp)
+
+                Text(
+                    text = "o",
+                    fontSize = 22.sp
+                )
             }
         }
-        Spacer(Modifier.height(6.dp))
+
+        Spacer(
+            modifier = Modifier.height(6.dp)
+        )
+
         Text(
-            team?.name ?: "?",
+            text = team?.name ?: "?",
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
@@ -340,213 +666,561 @@ private fun TeamBlock(team: TeamModel?, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun OverviewTab(events: List<MatchEventModel>) {
+private fun OverviewTab(
+    events: List<MatchEventModel>
+) {
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(16.dp)
     ) {
-        Text("Esemenyek", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        Spacer(Modifier.height(10.dp))
+
+        Text(
+            text = "Esemenyek",
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+
+        Spacer(
+            modifier = Modifier.height(10.dp)
+        )
+
         if (events.isEmpty()) {
+
             Text(
-                "Meg nincsenek esemenyek",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "Meg nincsenek esemenyek",
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant,
                 fontSize = 14.sp
             )
+
         } else {
-            events.forEach { ev ->
-                EventRow(ev)
-                Spacer(Modifier.height(6.dp))
+
+            events.forEach { event ->
+
+                EventRow(event)
+
+                Spacer(
+                    modifier = Modifier.height(6.dp)
+                )
             }
         }
-        Spacer(Modifier.height(24.dp))
+
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
     }
 }
 
 @Composable
-private fun EventRow(ev: MatchEventModel) {
+private fun EventRow(
+    ev: MatchEventModel
+) {
     Row(
-        Modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clip(
+                RoundedCornerShape(10.dp)
+            )
+            .background(
+                MaterialTheme.colorScheme.surface
+            )
+            .padding(
+                horizontal = 12.dp,
+                vertical = 8.dp
+            ),
+
+        verticalAlignment =
+            Alignment.CenterVertically
     ) {
+
         Text(
-            ev.time ?: "-",
+            text = ev.time ?: "-",
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .primary,
+
             modifier = Modifier.width(40.dp)
         )
+
         Text(
-            when (ev.type) {
-                "Goal", "Penalty" -> "G"
-                "Own Goal" -> "OG"
-                "Yellow Card" -> "S"
-                "Red Card" -> "P"
-                "Substitution" -> "Cs"
-                else -> "*"
-            },
+            text =
+                when (ev.type) {
+                    "Goal",
+                    "Penalty" -> "G"
+
+                    "Own Goal" -> "OG"
+
+                    "Yellow Card" -> "S"
+
+                    "Red Card" -> "P"
+
+                    "Substitution" -> "Cs"
+
+                    else -> "*"
+                },
+
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(end = 8.dp)
+
+            modifier =
+                Modifier.padding(end = 8.dp)
         )
-        Column(Modifier.weight(1f)) {
+
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+
             Text(
-                ev.player ?: ev.type ?: "Esemeny",
+                text =
+                    ev.player
+                        ?: ev.type
+                        ?: "Esemeny",
+
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight =
+                    FontWeight.Medium
             )
+
             if (!ev.assist.isNullOrBlank()) {
+
                 Text(
-                    "Golpassz: " + ev.assist,
+                    text =
+                        "Golpassz: " +
+                            ev.assist,
+
                     fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
                 )
             }
         }
+
         Text(
-            when (ev.type) {
-                "Goal" -> "Gol"
-                "Penalty" -> "Bunteto"
-                "Own Goal" -> "OnGol"
-                "Yellow Card" -> "Sarga"
-                "Red Card" -> "Piros"
-                "Substitution" -> "Csere"
-                "Missed Penalty" -> "Kihagyott 11-es"
-                else -> (ev.type ?: "")
-            },
+            text =
+                when (ev.type) {
+                    "Goal" ->
+                        "Gol"
+
+                    "Penalty" ->
+                        "Bunteto"
+
+                    "Own Goal" ->
+                        "OnGol"
+
+                    "Yellow Card" ->
+                        "Sarga"
+
+                    "Red Card" ->
+                        "Piros"
+
+                    "Substitution" ->
+                        "Csere"
+
+                    "Missed Penalty" ->
+                        "Kihagyott 11-es"
+
+                    else ->
+                        ev.type ?: ""
+                },
+
             fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant
         )
     }
 }
+
 @Composable
-private fun StatsTab(statistics: List<TeamStatistics>) {
+private fun StatsTab(
+    statistics: List<TeamStatistics>
+) {
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(16.dp)
     ) {
+
         if (statistics.isEmpty()) {
+
             Text(
-                "Nincs elerheto statisztika ehhez a meccshez",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text =
+                    "Nincs elerheto statisztika ehhez a meccshez",
+
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
             )
+
             return@Column
         }
 
-        val homeStats = statistics.getOrNull(0)?.statistics.orEmpty()
-        val awayStats = statistics.getOrNull(1)?.statistics.orEmpty()
-        val names = (homeStats.mapNotNull { it.displayName ?: it.name } +
-                awayStats.mapNotNull { it.displayName ?: it.name }).distinct()
+        val homeStats =
+            statistics
+                .getOrNull(0)
+                ?.statistics
+                .orEmpty()
+
+        val awayStats =
+            statistics
+                .getOrNull(1)
+                ?.statistics
+                .orEmpty()
+
+        val names =
+            (
+                homeStats.mapNotNull {
+                    it.displayName ?: it.name
+                } +
+                    awayStats.mapNotNull {
+                        it.displayName ?: it.name
+                    }
+                )
+                .distinct()
 
         names.forEach { name ->
-            val h = homeStats.find { (it.displayName ?: it.name) == name }?.value?.toString() ?: "-"
-            val a = awayStats.find { (it.displayName ?: it.name) == name }?.value?.toString() ?: "-"
+
+            val homeValue =
+                homeStats
+                    .find {
+                        (it.displayName ?: it.name) == name
+                    }
+                    ?.value
+                    ?.toString()
+                    ?: "-"
+
+            val awayValue =
+                awayStats
+                    .find {
+                        (it.displayName ?: it.name) == name
+                    }
+                    ?.value
+                    ?.toString()
+                    ?: "-"
+
             Row(
-                Modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
+
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
-                Text(h, Modifier.weight(1f), textAlign = TextAlign.End, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+
                 Text(
-                    huStatName(name),
-                    Modifier.weight(1.4f),
-                    textAlign = TextAlign.Center,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = homeValue,
+
+                    modifier =
+                        Modifier.weight(1f),
+
+                    textAlign =
+                        TextAlign.End,
+
+                    fontWeight =
+                        FontWeight.Bold,
+
+                    fontSize = 14.sp
                 )
-                Text(a, Modifier.weight(1f), textAlign = TextAlign.Start, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+
+                Text(
+                    text = huStatName(name),
+
+                    modifier =
+                        Modifier.weight(1.4f),
+
+                    textAlign =
+                        TextAlign.Center,
+
+                    fontSize = 12.sp,
+
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+
+                Text(
+                    text = awayValue,
+
+                    modifier =
+                        Modifier.weight(1f),
+
+                    textAlign =
+                        TextAlign.Start,
+
+                    fontWeight =
+                        FontWeight.Bold,
+
+                    fontSize = 14.sp
+                )
             }
-            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+            Divider(
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .outline
+                        .copy(alpha = 0.2f)
+            )
         }
-        Spacer(Modifier.height(24.dp))
+
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
     }
 }
 
-private fun huStatName(name: String): String = when (name.lowercase()) {
-    "ball possession", "possession" -> "Labdabirtoklas"
-    "total shots", "shots" -> "Lovesek"
-    "shots on goal", "shots on target" -> "Kapura loves"
-    "shots off goal", "shots off target" -> "Kapu melle"
-    "blocked shots" -> "Blokkolt loves"
-    "corner kicks", "corners" -> "Szogletek"
-    "offsides" -> "Les"
-    "fouls" -> "Szabalysertesek"
-    "yellow cards" -> "Sarga lapok"
-    "red cards" -> "Piros lapok"
-    "goalkeeper saves", "saves" -> "Vedesek"
-    "total passes", "passes" -> "Passzok"
-    "passes accurate", "accurate passes" -> "Pontos passz"
-    "expected goals", "xg" -> "xG"
-    else -> name
-}
+private fun huStatName(
+    name: String
+): String =
+    when (name.lowercase()) {
+
+        "ball possession",
+        "possession" ->
+            "Labdabirtoklas"
+
+        "total shots",
+        "shots" ->
+            "Lovesek"
+
+        "shots on goal",
+        "shots on target" ->
+            "Kapura loves"
+
+        "shots off goal",
+        "shots off target" ->
+            "Kapu melle"
+
+        "blocked shots" ->
+            "Blokkolt loves"
+
+        "corner kicks",
+        "corners" ->
+            "Szogletek"
+
+        "offsides" ->
+            "Les"
+
+        "fouls" ->
+            "Szabalysertesek"
+
+        "yellow cards" ->
+            "Sarga lapok"
+
+        "red cards" ->
+            "Piros lapok"
+
+        "goalkeeper saves",
+        "saves" ->
+            "Vedesek"
+
+        "total passes",
+        "passes" ->
+            "Passzok"
+
+        "passes accurate",
+        "accurate passes" ->
+            "Pontos passz"
+
+        "expected goals",
+        "xg" ->
+            "xG"
+
+        else ->
+            name
+    }
 
 @Composable
-private fun LineupTab(lineups: MatchLineups?, match: MatchModel) {
+private fun LineupTab(
+    lineups: MatchLineups?,
+    match: MatchModel
+) {
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(16.dp)
     ) {
+
         if (lineups == null) {
+
             Text(
-                "A felallas meg nem elerheto - altalaban 30 perccel a kezdes elott",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(24.dp)
+                text =
+                    "A felallas meg nem elerheto - altalaban 30 perccel a kezdes elott",
+
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant,
+
+                textAlign =
+                    TextAlign.Center,
+
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
             )
+
             return@Column
         }
-        TeamLineupBlock(match.homeTeam?.name ?: "Hazai", lineups.home)
-        Spacer(Modifier.height(20.dp))
-        TeamLineupBlock(match.awayTeam?.name ?: "Vendeg", lineups.away)
-        Spacer(Modifier.height(24.dp))
+
+        TeamLineupBlock(
+            teamName =
+                match.homeTeam?.name
+                    ?: "Hazai",
+
+            lineup = lineups.home
+        )
+
+        Spacer(
+            modifier = Modifier.height(20.dp)
+        )
+
+        TeamLineupBlock(
+            teamName =
+                match.awayTeam?.name
+                    ?: "Vendeg",
+
+            lineup = lineups.away
+        )
+
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
     }
 }
 
 @Composable
-private fun TeamLineupBlock(teamName: String, lineup: TeamLineup?) {
-    val formation = lineup?.formation
-    val title = if (formation.isNullOrBlank()) teamName else teamName + " (" + formation + ")"
-    Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-    Spacer(Modifier.height(8.dp))
+private fun TeamLineupBlock(
+    teamName: String,
+    lineup: TeamLineup?
+) {
+    val formation =
+        lineup?.formation
+
+    val title =
+        if (formation.isNullOrBlank()) {
+            teamName
+        } else {
+            "$teamName ($formation)"
+        }
+
+    Text(
+        text = title,
+        fontWeight = FontWeight.Bold,
+        fontSize = 15.sp
+    )
+
+    Spacer(
+        modifier = Modifier.height(8.dp)
+    )
+
     if (lineup?.initialLineup.isNullOrEmpty()) {
-        Text("Nincs kezdo", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+
+        Text(
+            text = "Nincs kezdo",
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant,
+            fontSize = 13.sp
+        )
+
     } else {
+
         lineup?.initialLineup?.forEach { row ->
+
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+
+                horizontalArrangement =
+                    Arrangement.spacedBy(6.dp)
             ) {
-                row.forEach { p ->
+
+                row.forEach { player ->
+
                     Box(
-                        Modifier
+                        modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surface)
+                            .clip(
+                                RoundedCornerShape(8.dp)
+                            )
+                            .background(
+                                MaterialTheme
+                                    .colorScheme
+                                    .surface
+                            )
                             .padding(6.dp)
                     ) {
+
                         Column {
-                            val num = p.number?.toString() ?: ""
-                            val pname = p.name ?: ""
+
+                            val number =
+                                player.number
+                                    ?.toString()
+                                    ?: ""
+
+                            val playerName =
+                                player.name ?: ""
+
                             Text(
-                                (num + " " + pname).trim(),
+                                text =
+                                    (
+                                        number +
+                                            " " +
+                                            playerName
+                                        ).trim(),
+
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
+
+                                fontWeight =
+                                    FontWeight.Medium,
+
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+
+                                overflow =
+                                    TextOverflow.Ellipsis
                             )
-                            if (!p.position.isNullOrBlank()) {
-                                Text(p.position, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                            if (
+                                !player.position
+                                    .isNullOrBlank()
+                            ) {
+
+                                Text(
+                                    text =
+                                        player.position,
+
+                                    fontSize = 10.sp,
+
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                )
                             }
                         }
                     }
@@ -554,20 +1228,84 @@ private fun TeamLineupBlock(teamName: String, lineup: TeamLineup?) {
             }
         }
     }
+
     if (!lineup?.substitutes.isNullOrEmpty()) {
-        Spacer(Modifier.height(8.dp))
-        Text("Pad", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        lineup?.substitutes?.forEach { p ->
-            val num = p.number?.toString() ?: ""
-            val pname = p.name ?: ""
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+        Text(
+            text = "Pad",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant
+        )
+
+        lineup?.substitutes?.forEach { player ->
+
+            val number =
+                player.number
+                    ?.toString()
+                    ?: ""
+
+            val playerName =
+                player.name ?: ""
+
             Text(
-                (num + " " + pname).trim(),
+                text =
+                    (
+                        number +
+                            " " +
+                            playerName
+                        ).trim(),
+
                 fontSize = 12.sp,
-                modifier = Modifier.padding(vertical = 2.dp)
+
+                modifier =
+                    Modifier.padding(
+                        vertical = 2.dp
+                    )
             )
         }
     }
 }
+
+/*
+ * ============================================================
+ * ODDS TAB - CRASH SAFE VERSION
+ * ============================================================
+ *
+ * FONTOS:
+ *
+ * A korábbi verzióban az OddsTab() belsejében egymásba ágyazott
+ * Compose key() blokkok voltak:
+ *
+ * key("market...")
+ *     key("bookmaker...")
+ *         key("odds...")
+ *
+ * A képernyőn jelentkező hiba:
+ *
+ * java.lang.IndexOutOfBoundsException:
+ * Index -1 out of bounds for length 0
+ *
+ * android...compose.runtime.Stack.pop()
+ *
+ * Ezért ebben a verzióban teljesen eltávolítottuk a key()
+ * használatát ebből a dinamikus odds-listából.
+ *
+ * Ugyanígy nincs remember(odds) sem.
+ *
+ * Az oddslista egyszerű Kotlin adatstruktúrából épül fel,
+ * majd stateless Compose UI-ként jelenik meg.
+ *
+ * Ez a rész szándékosan egyszerűbb és stabilabb.
+ * ============================================================
+ */
 
 @Composable
 private fun OddsTab(
@@ -575,127 +1313,357 @@ private fun OddsTab(
     match: MatchModel,
     onAddToSlip: (BetSlipSelection) -> Unit
 ) {
-    // Az oddsokat eloszor megtisztitjuk, hogy a Compositionbe csak valos, ervenyes
-    // elemek keruljenek. A stabil key-k megakadalyozzak, hogy recomposition kozben
-    // a Compose rossz groupot probaljon kivenni a belso stack-bol.
-    val validOdds = remember(odds) {
-        odds.mapNotNull { bookmaker ->
-            val market = bookmaker.market?.takeIf { it.isNotBlank() } ?: "Egyeb"
-            val bookmakerName = bookmaker.bookmakerName?.takeIf { it.isNotBlank() } ?: "Bookmaker"
 
-            val entries = bookmaker.values.orEmpty().mapNotNull { value ->
-                val odd = value.odd ?: return@mapNotNull null
-                val selection = value.value?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                if (!odd.isFinite() || odd <= 0.0) return@mapNotNull null
-                OddEntry(selection = selection, odd = odd)
-            }
+    /*
+     * Az API válaszát megtisztítjuk.
+     *
+     * Kiszűrjük:
+     * - null odds
+     * - üres selection
+     * - 0 vagy negatív odds
+     * - NaN
+     * - Infinity
+     * - üres bookmaker
+     * - üres market
+     */
+
+    val validOdds =
+        odds.mapNotNull { bookmaker ->
+
+            val market =
+                bookmaker.market
+                    ?.trim()
+                    ?.takeIf {
+                        it.isNotEmpty()
+                    }
+                    ?: "Egyeb"
+
+            val bookmakerName =
+                bookmaker.bookmakerName
+                    ?.trim()
+                    ?.takeIf {
+                        it.isNotEmpty()
+                    }
+                    ?: "Bookmaker"
+
+            val entries =
+                bookmaker.values
+                    .orEmpty()
+                    .mapNotNull { value ->
+
+                        val odd =
+                            value.odd
+                                ?: return@mapNotNull null
+
+                        val selection =
+                            value.value
+                                ?.trim()
+                                ?.takeIf {
+                                    it.isNotEmpty()
+                                }
+                                ?: return@mapNotNull null
+
+                        if (
+                            !odd.isFinite() ||
+                            odd <= 0.0
+                        ) {
+                            return@mapNotNull null
+                        }
+
+                        OddEntry(
+                            selection = selection,
+                            odd = odd
+                        )
+                    }
 
             if (entries.isEmpty()) {
+
                 null
+
             } else {
+
                 OddsGroup(
                     market = market,
-                    bookmakerName = bookmakerName,
+                    bookmakerName =
+                        bookmakerName,
                     entries = entries
                 )
             }
         }
-    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(16.dp)
     ) {
+
+        /*
+         * Ha nincs odds, NEM próbálunk üres Row-t,
+         * üres weight-et vagy dinamikus key-t létrehozni.
+         */
+
         if (validOdds.isEmpty()) {
-            Text(
-                "Nincs elerheto odds (Ultra plan vagy tamogatott liga szukseges)",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
+
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp)
-            )
+                    .padding(
+                        vertical = 32.dp
+                    ),
+
+                contentAlignment =
+                    Alignment.Center
+            ) {
+
+                Column(
+                    horizontalAlignment =
+                        Alignment.CenterHorizontally
+                ) {
+
+                    Text(
+                        text =
+                            "Nincs elerheto odds",
+
+                        fontSize = 16.sp,
+
+                        fontWeight =
+                            FontWeight.Bold,
+
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurface
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(8.dp)
+                    )
+
+                    Text(
+                        text =
+                            "Az odds adat jelenleg nem erheto el ehhez a merkozeshez.",
+
+                        fontSize = 13.sp,
+
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant,
+
+                        textAlign =
+                            TextAlign.Center
+                    )
+                }
+            }
+
             return@Column
         }
 
         Text(
-            "Koppints egy oddsra a szelvenyhez adashoz",
+            text =
+                "Koppints egy oddsra a szelvenyhez adashoz",
+
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 12.dp)
+
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant,
+
+            modifier =
+                Modifier.padding(
+                    bottom = 12.dp
+                )
         )
 
-        val groupsByMarket = validOdds.groupBy { it.market }
+        /*
+         * Fontos:
+         *
+         * groupBy() csak Kotlin oldalon csoportosít.
+         * Nem hoz létre Compose key/group struktúrát.
+         */
 
-        for ((marketIndex, marketEntry) in groupsByMarket.entries.withIndex()) {
-            val market = marketEntry.key
-            val groups = marketEntry.value
+        val groupsByMarket =
+            validOdds.groupBy {
+                it.market
+            }
 
-            key("market_${marketIndex}_$market") {
-                Text(
+        /*
+         * Piacok megjelenítése.
+         *
+         * NINCS:
+         * key(...)
+         *
+         * NINCS:
+         * LazyColumn key
+         *
+         * NINCS:
+         * remember(...)
+         */
+
+        groupsByMarket.forEach {
+                (market, groups) ->
+
+            Text(
+                text =
                     huMarket(market),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
+
+                fontWeight =
+                    FontWeight.Bold,
+
+                fontSize = 14.sp,
+
+                modifier =
+                    Modifier.padding(
+                        top = 8.dp,
+                        bottom = 6.dp
+                    )
+            )
+
+            groups.forEach { group ->
+
+                Text(
+                    text =
+                        group.bookmakerName,
+
+                    fontSize = 11.sp,
+
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant,
+
+                    modifier =
+                        Modifier.padding(
+                            bottom = 4.dp
+                        )
                 )
 
-                for ((groupIndex, group) in groups.withIndex()) {
-                    key("bookmaker_${marketIndex}_${groupIndex}_${group.bookmakerName}") {
-                        Text(
-                            group.bookmakerName,
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
+                /*
+                 * Az oddsok Row-ban vannak.
+                 *
+                 * A weight() kizárólag layout művelet.
+                 * Nem használ Compose group/key rendszert.
+                 */
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            for ((valueIndex, entry) in group.entries.withIndex()) {
-                                val label = when (entry.selection.lowercase()) {
-                                    "home" -> match.homeTeam?.name?.take(10) ?: "1"
-                                    "away" -> match.awayTeam?.name?.take(10) ?: "2"
-                                    "draw" -> "X"
-                                    else -> entry.selection
-                                }
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
 
-                                key(
-                                    "odds_${marketIndex}_${groupIndex}_${valueIndex}" +
-                                            "_${entry.selection}_${entry.odd}"
-                                ) {
-                                    OddsChip(
-                                        label = label,
-                                        odd = entry.odd,
-                                        onClick = {
-                                            onAddToSlip(
-                                                BetSlipSelection(
-                                                    matchId = match.id,
-                                                    homeName = match.homeTeam?.name ?: "Hazai",
-                                                    awayName = match.awayTeam?.name ?: "Vendeg",
-                                                    leagueName = match.leagueDisplayName,
-                                                    market = market,
-                                                    selection = entry.selection,
-                                                    odd = entry.odd,
-                                                    bookmakerName = group.bookmakerName
-                                                )
-                                            )
-                                        },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
+                    horizontalArrangement =
+                        Arrangement.spacedBy(6.dp)
+                ) {
+
+                    group.entries.forEach { entry ->
+
+                        val selectionLower =
+                            entry.selection
+                                .trim()
+                                .lowercase()
+
+                        /*
+                         * A címkét többféle API-formátumhoz
+                         * is biztonságosan meghatározzuk.
+                         */
+
+                        val label =
+                            when {
+
+                                selectionLower == "home" ||
+                                selectionLower == "1" ->
+
+                                    match.homeTeam
+                                        ?.name
+                                        ?.take(12)
+                                        ?: "1"
+
+                                selectionLower == "away" ||
+                                selectionLower == "2" ->
+
+                                    match.awayTeam
+                                        ?.name
+                                        ?.take(12)
+                                        ?: "2"
+
+                                selectionLower == "draw" ||
+                                selectionLower == "x" ->
+
+                                    "X"
+
+                                else ->
+
+                                    entry.selection
+                                        .take(12)
                             }
-                        }
 
-                        Spacer(Modifier.height(8.dp))
+                        /*
+                         * Nincs key() körülötte.
+                         */
+
+                        OddsChip(
+                            label = label,
+
+                            odd = entry.odd,
+
+                            onClick = {
+
+                                val selection =
+                                    BetSlipSelection(
+
+                                        matchId =
+                                            match.id,
+
+                                        homeName =
+                                            match.homeTeam
+                                                ?.name
+                                                ?: "Hazai",
+
+                                        awayName =
+                                            match.awayTeam
+                                                ?.name
+                                                ?: "Vendeg",
+
+                                        leagueName =
+                                            match.leagueDisplayName,
+
+                                        market =
+                                            market,
+
+                                        selection =
+                                            entry.selection,
+
+                                        odd =
+                                            entry.odd,
+
+                                        bookmakerName =
+                                            group.bookmakerName
+                                    )
+
+                                onAddToSlip(
+                                    selection
+                                )
+                            },
+
+                            modifier =
+                                Modifier.weight(1f)
+                        )
                     }
                 }
+
+                Spacer(
+                    modifier =
+                        Modifier.height(8.dp)
+                )
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
     }
 }
 
@@ -710,18 +1678,46 @@ private data class OddEntry(
     val odd: Double
 )
 
-private fun huMarket(market: String): String = when (market.lowercase()) {
-    "full time result", "match result", "1x2" -> "Vegeredmeny (1X2)"
-    "double chance" -> "Kettos esely"
-    "both teams to score", "btts" -> "Mindket csapat szerez golt"
-    "total goals", "goals over/under", "over/under" -> "Golok szama"
-    "draw no bet" -> "Dontetlennel visszajar"
-    "first half result" -> "1. felido eredmenye"
-    "second half result" -> "2. felido eredmenye"
-    "correct score" -> "Pontos eredmeny"
-    "team total" -> "Csapat golok"
-    else -> market
-}
+private fun huMarket(
+    market: String
+): String =
+    when (market.lowercase()) {
+
+        "full time result",
+        "match result",
+        "1x2" ->
+            "Vegeredmeny (1X2)"
+
+        "double chance" ->
+            "Kettos esely"
+
+        "both teams to score",
+        "btts" ->
+            "Mindket csapat szerez golt"
+
+        "total goals",
+        "goals over/under",
+        "over/under" ->
+            "Golok szama"
+
+        "draw no bet" ->
+            "Dontetlennel visszajar"
+
+        "first half result" ->
+            "1. felido eredmenye"
+
+        "second half result" ->
+            "2. felido eredmenye"
+
+        "correct score" ->
+            "Pontos eredmeny"
+
+        "team total" ->
+            "Csapat golok"
+
+        else ->
+            market
+    }
 
 @Composable
 private fun OddsChip(
@@ -732,75 +1728,198 @@ private fun OddsChip(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .clip(
+                RoundedCornerShape(10.dp)
+            )
+            .background(
+                MaterialTheme
+                    .colorScheme
+                    .surface
+            )
+            .border(
+                1.dp,
+
+                MaterialTheme
+                    .colorScheme
+                    .outline
+                    .copy(alpha = 0.4f),
+
+                RoundedCornerShape(10.dp)
+            )
+            .clickable(
+                onClick = onClick
+            )
+            .padding(
+                vertical = 10.dp,
+                horizontal = 6.dp
+            ),
+
+        horizontalAlignment =
+            Alignment.CenterHorizontally
     ) {
+
         Text(
-            label,
+            text = label,
+
             fontSize = 11.sp,
+
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+
+            overflow =
+                TextOverflow.Ellipsis,
+
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant
         )
-        Spacer(Modifier.height(2.dp))
+
+        Spacer(
+            modifier =
+                Modifier.height(2.dp)
+        )
+
         Text(
-            String.format(Locale.US, "%.2f", odd),
+            text =
+                String.format(
+                    Locale.US,
+                    "%.2f",
+                    odd
+                ),
+
             fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+
+            fontWeight =
+                FontWeight.Bold,
+
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .primary
         )
     }
 }
 
 @Composable
-private fun H2HTab(h2h: List<MatchModel>) {
+private fun H2HTab(
+    h2h: List<MatchModel>
+) {
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(16.dp)
     ) {
-        Text("Korabbi talalkozok", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        Spacer(Modifier.height(10.dp))
+
+        Text(
+            text = "Korabbi talalkozok",
+            fontWeight =
+                FontWeight.Bold,
+            fontSize = 16.sp
+        )
+
+        Spacer(
+            modifier =
+                Modifier.height(10.dp)
+        )
+
         if (h2h.isEmpty()) {
-            Text("Nincs elerheto H2H adat", color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Text(
+                text =
+                    "Nincs elerheto H2H adat",
+
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+
         } else {
-            h2h.forEach { m ->
-                val scoreText = if (m.hasScore) {
-                    m.homeScoreDisplay + ":" + m.awayScoreDisplay
-                } else {
-                    "-"
-                }
-                val matchLabel = (m.homeTeam?.name ?: "?") + " - " + (m.awayTeam?.name ?: "?")
+
+            h2h.forEach { match ->
+
+                val scoreText =
+                    if (match.hasScore) {
+
+                        match.homeScoreDisplay +
+                            ":" +
+                            match.awayScoreDisplay
+
+                    } else {
+
+                        "-"
+                    }
+
+                val matchLabel =
+                    (
+                        match.homeTeam?.name
+                            ?: "?"
+                        ) +
+                        " - " +
+                        (
+                            match.awayTeam?.name
+                                ?: "?"
+                            )
+
                 Row(
-                    Modifier
+                    modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surface)
+                        .clip(
+                            RoundedCornerShape(10.dp)
+                        )
+                        .background(
+                            MaterialTheme
+                                .colorScheme
+                                .surface
+                        )
                         .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
+
                     Text(
-                        matchLabel,
-                        Modifier.weight(1f),
+                        text = matchLabel,
+
+                        modifier =
+                            Modifier.weight(1f),
+
                         fontSize = 13.sp,
+
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+
+                        overflow =
+                            TextOverflow.Ellipsis
                     )
+
                     Text(
-                        scoreText,
-                        fontWeight = FontWeight.Bold,
+                        text = scoreText,
+
+                        fontWeight =
+                            FontWeight.Bold,
+
                         fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.primary
+
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .primary
                     )
                 }
-                Spacer(Modifier.height(6.dp))
+
+                Spacer(
+                    modifier =
+                        Modifier.height(6.dp)
+                )
             }
         }
-        Spacer(Modifier.height(24.dp))
+
+        Spacer(
+            modifier =
+                Modifier.height(24.dp)
+        )
     }
 }
