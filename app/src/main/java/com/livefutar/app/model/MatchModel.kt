@@ -1,5 +1,7 @@
 package com.livefutar.app.model
 
+import com.livefutar.app.util.DateUtils
+
 data class MatchModel(
     val id: Long,
     val date: String?,
@@ -16,6 +18,9 @@ data class MatchModel(
 
     val hasScore: Boolean
         get() = state?.score?.current != null
+
+    val kickoffTime: String
+        get() = DateUtils.kickoffTime(date)
 
     // Az API angol nyelvű, gépi státuszait fordítjuk le és kategorizáljuk,
     // hogy a UI tudja, mikor mutasson "élő" jelzést.
@@ -56,6 +61,9 @@ data class MatchModel(
             "Abandoned", "Awarded" -> true
             else -> false
         }
+
+    val isNotStarted: Boolean
+        get() = state?.description == "Not started" || state?.description == null
 }
 
 data class MatchState(
