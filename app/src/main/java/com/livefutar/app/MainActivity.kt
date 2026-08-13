@@ -34,12 +34,10 @@ import com.livefutar.app.ui.screens.MatchDetailScreen
 import com.livefutar.app.ui.screens.SettingsScreen
 import com.livefutar.app.ui.screens.VideoPlayerScreen
 import com.livefutar.app.ui.theme.LiveFutarTheme
+import com.livefutar.app.util.DateUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 // Élő adatok esetén ennyi időnként frissítünk automatikusan a háttérben.
 private const val AUTO_REFRESH_INTERVAL_MS = 60_000L
@@ -58,6 +56,8 @@ class MainActivity : ComponentActivity() {
                 var isLoading by remember { mutableStateOf(true) }
                 var isRefreshing by remember { mutableStateOf(false) }
                 var errorMessage by remember { mutableStateOf<String?>(null) }
+                // A kiválasztott nap (dátumsáv), amire a meccseket/videókat lekérjük.
+                var selectedDate by remember { mutableStateOf(DateUtils.today()) }
                 // Minden alkalommal, amikor ez a szám nő, azonnal újratöltjük az adatokat
                 // (pl. a Beállításokban elmentett API kulcs után, vagy "Újrapróbálkozás" gombra).
                 var reloadTrigger by remember { mutableStateOf(0) }
@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
                         return
                     }
 
-                    val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                    val today = selectedDate
 
                     try {
                         withContext(Dispatchers.IO) {
@@ -105,8 +105,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Azonnali (teljes képernyős töltő) betöltés induláskor és manuális újrapróbálkozáskor.
-                LaunchedEffect(reloadTrigger) {
+                // Azonnali (teljes képernyős töltő) betöltés induláskor, dátumváltáskor és
+                // manuális újrapróbálkozáskor.
+                LaunchedEffect(reloadTrigger, selectedDate) {
                     fetchData(isBackground = false)
                 }
 
@@ -182,6 +183,8 @@ class MainActivity : ComponentActivity() {
                                 }
                                 currentScreen == "home" -> HomeScreen(
                                     matches = matches,
+                                    selectedDate = selectedDate,
+                                    onDateSelected = { newDate -> selectedDate = newDate },
                                     onMatchClick = { match -> selectedMatch = match }
                                 )
                                 currentScreen == "highlights" -> HighlightsScreen(
