@@ -30,6 +30,7 @@ import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 private enum class DetailTab { OVERVIEW, STATS, LINEUP, ODDS, H2H }
 
@@ -72,7 +73,11 @@ fun MatchDetailScreen(
                 } else emptyList()
 
                 oddsItems = try {
-                    val resp = apiService.getOdds(apiKey, match.id, oddsType = if (match.isLive) "live" else "prematch")
+                    val resp = apiService.getOdds(
+                        apiKey,
+                        match.id,
+                        oddsType = if (match.isLive) "live" else "prematch"
+                    )
                     resp.data?.firstOrNull()?.odds ?: emptyList()
                 } catch (_: Exception) {
                     try {
@@ -107,7 +112,7 @@ fun MatchDetailScreen(
                 },
                 navigationIcon = {
                     Text(
-                        "←",
+                        "<-",
                         fontSize = 22.sp,
                         modifier = Modifier
                             .clickable { onBackClick() }
@@ -137,7 +142,7 @@ fun MatchDetailScreen(
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                "🎟️ $slipCount",
+                                "Szelveny $slipCount",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = AccentGold
@@ -172,9 +177,9 @@ fun MatchDetailScreen(
                         text = {
                             Text(
                                 when (tab) {
-                                    DetailTab.OVERVIEW -> "Összegzés"
+                                    DetailTab.OVERVIEW -> "Osszegzes"
                                     DetailTab.STATS -> "Stat"
-                                    DetailTab.LINEUP -> "Felállás"
+                                    DetailTab.LINEUP -> "Felallas"
                                     DetailTab.ODDS -> "Odds"
                                     DetailTab.H2H -> "H2H"
                                 },
@@ -192,8 +197,8 @@ fun MatchDetailScreen(
                 }
             } else {
                 when (selectedTab) {
-                    DetailTab.OVERVIEW -> OverviewTab(match, events)
-                    DetailTab.STATS -> StatsTab(statistics, match)
+                    DetailTab.OVERVIEW -> OverviewTab(events)
+                    DetailTab.STATS -> StatsTab(statistics)
                     DetailTab.LINEUP -> LineupTab(lineups, match)
                     DetailTab.ODDS -> OddsTab(
                         odds = oddsItems,
@@ -203,7 +208,7 @@ fun MatchDetailScreen(
                             slipCount = BetSlipManager.count(context)
                             Toast.makeText(
                                 context,
-                                if (ok) "Hozzáadva a szelvényhez" else "Szelvény tele (max 10)",
+                                if (ok) "Hozzaadva a szelvenyhez" else "Szelveny tele (max 10)",
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
@@ -246,7 +251,7 @@ private fun MatchScoreHeader(match: MatchModel) {
                 }
                 Text(
                     text = if (match.isLive) {
-                        "ÉLŐ ${match.liveMinuteLabel ?: ""}".trim()
+                        "ELO " + (match.liveMinuteLabel ?: "")
                     } else match.statusLabel,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
@@ -264,7 +269,9 @@ private fun MatchScoreHeader(match: MatchModel) {
                     modifier = Modifier.padding(horizontal = 8.dp)
                 ) {
                     Text(
-                        text = if (match.hasScore) "${match.homeScoreDisplay} : ${match.awayScoreDisplay}" else "–",
+                        text = if (match.hasScore) {
+                            match.homeScoreDisplay + " : " + match.awayScoreDisplay
+                        } else "-",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (match.isLive) AccentGreen else MaterialTheme.colorScheme.onSurface
@@ -317,7 +324,7 @@ private fun TeamBlock(team: TeamModel?, modifier: Modifier = Modifier) {
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                Text("⚽", fontSize = 22.sp)
+                Text("o", fontSize = 22.sp)
             }
         }
         Spacer(Modifier.height(6.dp))
@@ -333,18 +340,18 @@ private fun TeamBlock(team: TeamModel?, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun OverviewTab(match: MatchModel, events: List<MatchEventModel>) {
+private fun OverviewTab(events: List<MatchEventModel>) {
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        Text("Események", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text("Esemenyek", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(Modifier.height(10.dp))
         if (events.isEmpty()) {
             Text(
-                "Még nincsenek események",
+                "Meg nincsenek esemenyek",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
@@ -369,7 +376,7 @@ private fun EventRow(ev: MatchEventModel) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            ev.time ?: "–",
+            ev.time ?: "-",
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
@@ -377,39 +384,49 @@ private fun EventRow(ev: MatchEventModel) {
         )
         Text(
             when (ev.type) {
-                "Goal", "Penalty" -> "⚽"
-                "Own Goal" -> "🥅"
-                "Yellow Card" -> "🟨"
-                "Red Card" -> "🟥"
-                "Substitution" -> "🔄"
-                else -> "•"
+                "Goal", "Penalty" -> "G"
+                "Own Goal" -> "OG"
+                "Yellow Card" -> "S"
+                "Red Card" -> "P"
+                "Substitution" -> "Cs"
+                else -> "*"
             },
-            fontSize = 16.sp,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(end = 8.dp)
         )
         Column(Modifier.weight(1f)) {
             Text(
-                ev.player ?: ev.type ?: "Esemény",
+                ev.player ?: ev.type ?: "Esemeny",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium
             )
             if (!ev.assist.isNullOrBlank()) {
                 Text(
-                    "Gólpassz: ${ev.assist}",
+                    "Golpassz: " + ev.assist,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
         Text(
-            ev.type ?: "",
+            when (ev.type) {
+                "Goal" -> "Gol"
+                "Penalty" -> "Bunteto"
+                "Own Goal" -> "OnGol"
+                "Yellow Card" -> "Sarga"
+                "Red Card" -> "Piros"
+                "Substitution" -> "Csere"
+                "Missed Penalty" -> "Kihagyott 11-es"
+                else -> (ev.type ?: "")
+            },
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 @Composable
-private fun StatsTab(statistics: List<TeamStatistics>, match: MatchModel) {
+private fun StatsTab(statistics: List<TeamStatistics>) {
     Column(
         Modifier
             .fillMaxSize()
@@ -418,7 +435,7 @@ private fun StatsTab(statistics: List<TeamStatistics>, match: MatchModel) {
     ) {
         if (statistics.isEmpty()) {
             Text(
-                "Nincs elérhető statisztika ehhez a meccshez",
+                "Nincs elerheto statisztika ehhez a meccshez",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             return@Column
@@ -430,8 +447,8 @@ private fun StatsTab(statistics: List<TeamStatistics>, match: MatchModel) {
                 awayStats.mapNotNull { it.displayName ?: it.name }).distinct()
 
         names.forEach { name ->
-            val h = homeStats.find { (it.displayName ?: it.name) == name }?.value?.toString() ?: "–"
-            val a = awayStats.find { (it.displayName ?: it.name) == name }?.value?.toString() ?: "–"
+            val h = homeStats.find { (it.displayName ?: it.name) == name }?.value?.toString() ?: "-"
+            val a = awayStats.find { (it.displayName ?: it.name) == name }?.value?.toString() ?: "-"
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -440,7 +457,7 @@ private fun StatsTab(statistics: List<TeamStatistics>, match: MatchModel) {
             ) {
                 Text(h, Modifier.weight(1f), textAlign = TextAlign.End, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(
-                    name,
+                    huStatName(name),
                     Modifier.weight(1.4f),
                     textAlign = TextAlign.Center,
                     fontSize = 12.sp,
@@ -452,6 +469,24 @@ private fun StatsTab(statistics: List<TeamStatistics>, match: MatchModel) {
         }
         Spacer(Modifier.height(24.dp))
     }
+}
+
+private fun huStatName(name: String): String = when (name.lowercase()) {
+    "ball possession", "possession" -> "Labdabirtoklas"
+    "total shots", "shots" -> "Lovesek"
+    "shots on goal", "shots on target" -> "Kapura loves"
+    "shots off goal", "shots off target" -> "Kapu melle"
+    "blocked shots" -> "Blokkolt loves"
+    "corner kicks", "corners" -> "Szogletek"
+    "offsides" -> "Les"
+    "fouls" -> "Szabalysertesek"
+    "yellow cards" -> "Sarga lapok"
+    "red cards" -> "Piros lapok"
+    "goalkeeper saves", "saves" -> "Vedesek"
+    "total passes", "passes" -> "Passzok"
+    "passes accurate", "accurate passes" -> "Pontos passz"
+    "expected goals", "xg" -> "xG"
+    else -> name
 }
 
 @Composable
@@ -480,11 +515,9 @@ private fun LineupTab(lineups: MatchLineups?, match: MatchModel) {
 
 @Composable
 private fun TeamLineupBlock(teamName: String, lineup: TeamLineup?) {
-    Text(
-        "$teamName ${lineup?.formation?.let { "($it)" } ?: ""}",
-        fontWeight = FontWeight.Bold,
-        fontSize = 15.sp
-    )
+    val formation = lineup?.formation
+    val title = if (formation.isNullOrBlank()) teamName else teamName + " (" + formation + ")"
+    Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
     Spacer(Modifier.height(8.dp))
     if (lineup?.initialLineup.isNullOrEmpty()) {
         Text("Nincs kezdo", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
@@ -503,8 +536,10 @@ private fun TeamLineupBlock(teamName: String, lineup: TeamLineup?) {
                             .padding(6.dp)
                     ) {
                         Column {
+                            val num = p.number?.toString() ?: ""
+                            val pname = p.name ?: ""
                             Text(
-                                "${p.number ?: ""} ${p.name ?: ""}".trim(),
+                                (num + " " + pname).trim(),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
@@ -523,8 +558,10 @@ private fun TeamLineupBlock(teamName: String, lineup: TeamLineup?) {
         Spacer(Modifier.height(8.dp))
         Text("Pad", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         lineup?.substitutes?.forEach { p ->
+            val num = p.number?.toString() ?: ""
+            val pname = p.name ?: ""
             Text(
-                "${p.number ?: ""} ${p.name ?: ""}".trim(),
+                (num + " " + pname).trim(),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(vertical = 2.dp)
             )
@@ -546,7 +583,7 @@ private fun OddsTab(
     ) {
         if (odds.isEmpty()) {
             Text(
-                "Nincs elerheto odds ehhez a meccshez - Ultra plan + tamogatott liga kell",
+                "Nincs elerheto odds (Ultra plan vagy tamogatott liga szukseges)",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(24.dp)
@@ -564,7 +601,7 @@ private fun OddsTab(
         val byMarket = odds.groupBy { it.market ?: "Egyeb" }
         byMarket.forEach { (market, list) ->
             Text(
-                market,
+                huMarket(market),
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
@@ -584,6 +621,7 @@ private fun OddsTab(
                     bo.values.orEmpty().forEach { v ->
                         val oddVal = v.odd ?: return@forEach
                         val sel = v.value ?: return@forEach
+                        if (!oddVal.isFinite() || oddVal <= 0.0) return@forEach
                         OddsChip(
                             label = when (sel.lowercase()) {
                                 "home" -> match.homeTeam?.name?.take(10) ?: "1"
@@ -617,6 +655,19 @@ private fun OddsTab(
     }
 }
 
+private fun huMarket(market: String): String = when (market.lowercase()) {
+    "full time result", "match result", "1x2" -> "Vegeredmeny (1X2)"
+    "double chance" -> "Kettos esely"
+    "both teams to score", "btts" -> "Mindket csapat szerez golt"
+    "total goals", "goals over/under", "over/under" -> "Golok szama"
+    "draw no bet" -> "Dontetlennel visszajar"
+    "first half result" -> "1. felido eredmenye"
+    "second half result" -> "2. felido eredmenye"
+    "correct score" -> "Pontos eredmeny"
+    "team total" -> "Csapat golok"
+    else -> market
+}
+
 @Composable
 private fun OddsChip(
     label: String,
@@ -642,7 +693,7 @@ private fun OddsChip(
         )
         Spacer(Modifier.height(2.dp))
         Text(
-            String.format("%.2f", odd),
+            String.format(Locale.US, "%.2f", odd),
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
@@ -664,6 +715,12 @@ private fun H2HTab(h2h: List<MatchModel>) {
             Text("Nincs elerheto H2H adat", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             h2h.forEach { m ->
+                val scoreText = if (m.hasScore) {
+                    m.homeScoreDisplay + ":" + m.awayScoreDisplay
+                } else {
+                    "-"
+                }
+                val matchLabel = (m.homeTeam?.name ?: "?") + " - " + (m.awayTeam?.name ?: "?")
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -673,14 +730,14 @@ private fun H2HTab(h2h: List<MatchModel>) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "${m.homeTeam?.name ?: "?"} – ${m.awayTeam?.name ?: "?"}",
+                        matchLabel,
                         Modifier.weight(1f),
                         fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        if (m.hasScore) "( {m.homeScoreDisplay}: ){m.awayScoreDisplay}" else "–",
+                        scoreText,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.primary
