@@ -49,13 +49,13 @@ interface FootballApiService {
         @Query("teamIdTwo") teamIdTwo: Long
     ): List<MatchModel>
 
-    /** Prematch / live odds – Ultra plan */
+    /** Prematch / live odds – Highlightly */
     @GET("odds")
     suspend fun getOdds(
         @Header("x-rapidapi-key") apiKey: String,
         @Query("matchId") matchId: Long,
         @Query("oddsType") oddsType: String = "prematch",
-        @Query("limit") limit: Int = 20
+        @Query("limit") limit: Int = 5
     ): OddsApiResponse
 
     /** Lineups – Ultra plan */
