@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -72,7 +71,6 @@ fun MatchDetailScreen(
                     } catch (_: Exception) { emptyList() }
                 } else emptyList()
 
-                // Odds – Ultra
                 oddsItems = try {
                     val resp = apiService.getOdds(apiKey, match.id, oddsType = if (match.isLive) "live" else "prematch")
                     resp.data?.firstOrNull()?.odds ?: emptyList()
@@ -83,12 +81,10 @@ fun MatchDetailScreen(
                     } catch (_: Exception) { emptyList() }
                 }
 
-                // Lineups
                 lineups = try {
                     apiService.getLineups(apiKey, match.id)
                 } catch (_: Exception) { null }
 
-                // Statistics
                 statistics = try {
                     apiService.getMatchStatistics(apiKey, match.id)
                 } catch (_: Exception) { emptyList() }
@@ -360,7 +356,9 @@ private fun OverviewTab(match: MatchModel, events: List<MatchEventModel>) {
         }
         Spacer(Modifier.height(24.dp))
     }
-}@Composable
+}
+
+@Composable
 private fun EventRow(ev: MatchEventModel) {
     Row(
         Modifier
@@ -410,7 +408,6 @@ private fun EventRow(ev: MatchEventModel) {
         )
     }
 }
-
 @Composable
 private fun StatsTab(statistics: List<TeamStatistics>, match: MatchModel) {
     Column(
@@ -467,7 +464,7 @@ private fun LineupTab(lineups: MatchLineups?, match: MatchModel) {
     ) {
         if (lineups == null) {
             Text(
-                "A felállás még nem elérhető\n(általában 30 perccel a kezdés előtt)",
+                "A felallas meg nem elerheto - altalaban 30 perccel a kezdes elott",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(24.dp)
@@ -476,7 +473,7 @@ private fun LineupTab(lineups: MatchLineups?, match: MatchModel) {
         }
         TeamLineupBlock(match.homeTeam?.name ?: "Hazai", lineups.home)
         Spacer(Modifier.height(20.dp))
-        TeamLineupBlock(match.awayTeam?.name ?: "Vendég", lineups.away)
+        TeamLineupBlock(match.awayTeam?.name ?: "Vendeg", lineups.away)
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -490,7 +487,7 @@ private fun TeamLineupBlock(teamName: String, lineup: TeamLineup?) {
     )
     Spacer(Modifier.height(8.dp))
     if (lineup?.initialLineup.isNullOrEmpty()) {
-        Text("Nincs kezdő", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        Text("Nincs kezdo", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
     } else {
         lineup?.initialLineup?.forEach { row ->
             Row(
@@ -549,7 +546,7 @@ private fun OddsTab(
     ) {
         if (odds.isEmpty()) {
             Text(
-                "Nincs elérhető odds ehhez a meccshez\n(Ultra plan + támogatott liga kell)",
+                "Nincs elerheto odds ehhez a meccshez - Ultra plan + tamogatott liga kell",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(24.dp)
@@ -558,13 +555,13 @@ private fun OddsTab(
         }
 
         Text(
-            "Koppints egy oddsra a szelvényhez adáshoz",
+            "Koppints egy oddsra a szelvenyhez adashoz",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        val byMarket = odds.groupBy { it.market ?: "Egyéb" }
+        val byMarket = odds.groupBy { it.market ?: "Egyeb" }
         byMarket.forEach { (market, list) ->
             Text(
                 market,
@@ -600,7 +597,7 @@ private fun OddsTab(
                                     BetSlipSelection(
                                         matchId = match.id,
                                         homeName = match.homeTeam?.name ?: "Hazai",
-                                        awayName = match.awayTeam?.name ?: "Vendég",
+                                        awayName = match.awayTeam?.name ?: "Vendeg",
                                         leagueName = match.leagueDisplayName,
                                         market = market,
                                         selection = sel,
@@ -661,10 +658,10 @@ private fun H2HTab(h2h: List<MatchModel>) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        Text("Korábbi találkozók", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text("Korabbi talalkozok", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(Modifier.height(10.dp))
         if (h2h.isEmpty()) {
-            Text("Nincs elérhető H2H adat", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Nincs elerheto H2H adat", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             h2h.forEach { m ->
                 Row(
