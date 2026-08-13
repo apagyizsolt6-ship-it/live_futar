@@ -1,7 +1,15 @@
 package com.livefutar.app.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,22 +43,26 @@ fun LiveFutarBottomBar(
 
         NavigationBarItem(
             icon = {
-                BadgedBox(
-                    badge = {
-                        if (liveCount > 0) {
-                            Badge(
-                                containerColor = AccentGreen,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ) {
-                                Text(
-                                    if (liveCount > 99) "99+" else liveCount.toString(),
-                                    fontSize = 10.sp
-                                )
-                            }
+                Box {
+                    Text("🔴", fontSize = if (currentScreen == "live") 20.sp else 18.sp)
+                    if (liveCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 6.dp, y = (-4).dp)
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(AccentGreen),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (liveCount > 9) "9+" else liveCount.toString(),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
                         }
                     }
-                ) {
-                    Text("🔴", fontSize = if (currentScreen == "live") 20.sp else 18.sp)
                 }
             },
             label = {
