@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.livefutar.app.data.ApiKeyManager
 import com.livefutar.app.data.FavoritesManager
 import com.livefutar.app.data.FootballApiService
+import com.livefutar.app.data.NotificationHelper
 import com.livefutar.app.data.PreferencesManager
 import com.livefutar.app.model.HighlightModel
 import com.livefutar.app.model.LeagueModel
@@ -88,6 +89,50 @@ class MainActivity : ComponentActivity() {
                     favoriteLeagueIds = FavoritesManager.getFavoriteLeagueIds(context)
                 }
 
+                // Az előző lekérdezés meccs-pillanatképe (id szerint), hogy észrevegyük,
+                // ha egy kedvenc csapat meccse elkezdődött vagy gólt szereztek.
+                var previousMatchesById by remember { mutableStateOf<Map<Long, MatchModel>?>(null) }
+
+                fun checkFavoriteMatchEvents(newMatches: List<MatchModel>) {
+                    if (!PreferencesManager.getNotifyFavorites(context)) return
+                    val previous = previousMatchesById ?: return
+                    val favTeams = FavoritesManager.getFavoriteTeamIds(context)
+                    if (favTeams.isEmpty()) return
+
+                    newMatches.forEach { match ->
+                        val homeId = match.homeTeam?.id
+                        val awayId = match.awayTeam?.id
+                        val isFavoriteMatch =
+                            (homeId != null && favTeams.contains(homeId)) ||
+                                (awayId != null && favTeams.contains(awayId))
+                        if (!isFavoriteMatch) return@forEach
+
+                        val prev = previous[match.id] ?: return@forEach
+                        val homeName = match.homeTeam?.name ?: "Hazai"
+                        val awayName = match.awayTeam?.name ?: "Vendég"
+
+                        if (prev.isNotStarted && match.isLive) {
+                            NotificationHelper.notifyKickoff(
+                                context,
+                                "⚽ Elkezdődött: $homeName – $awayName",
+                                match.leagueDisplayName
+                            )
+                        }
+
+                        val prevHome = prev.homeScoreDisplay.toIntOrNull() ?: 0
+                        val prevAway = prev.awayScoreDisplay.toIntOrNull() ?: 0
+                        val newHome = match.homeScoreDisplay.toIntOrNull() ?: 0
+                        val newAway = match.awayScoreDisplay.toIntOrNull() ?: 0
+                        if (match.isLive && (newHome > prevHome || newAway > prevAway)) {
+                            NotificationHelper.notifyGoal(
+                                context,
+                                "⚽ Gól! $homeName $newHome - $newAway $awayName",
+                                match.leagueDisplayName
+                            )
+                        }
+                    }
+                }
+
                 suspend fun fetchData(isBackground: Boolean) {
                     if (isBackground) {
                         isRefreshing = true
@@ -112,8 +157,10 @@ class MainActivity : ComponentActivity() {
                         withContext(Dispatchers.IO) {
                             val newMatches = apiService.getMatches(apiKey, today).data ?: emptyList()
                             val newHighlights = apiService.getHighlights(apiKey, today).data ?: emptyList()
+                            checkFavoriteMatchEvents(newMatches)
                             matches = newMatches
                             highlights = newHighlights
+                            previousMatchesById = newMatches.associateBy { it.id }
                         }
                         errorMessage = null
                     } catch (e: Exception) {
