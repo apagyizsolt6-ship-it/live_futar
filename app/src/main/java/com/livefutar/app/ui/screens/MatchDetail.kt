@@ -1,9 +1,12 @@
 package com.livefutar.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -18,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -76,18 +80,22 @@ fun MatchDetailScreen(
         }
     }
 
+    val titleText = match.leagueDisplayName
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        match.league?.name ?: "Meccs részletei",
-                        fontWeight = FontWeight.Bold
+                        titleText,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        maxLines = 1
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Text("←", fontWeight = FontWeight.Bold)
+                        Text("←", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     }
                 },
                 actions = {
@@ -115,14 +123,31 @@ fun MatchDetailScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
+                .background(MaterialTheme.colorScheme.background)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (match.isLive) {
+                            Modifier.border(
+                                1.5.dp,
+                                AccentGreen.copy(alpha = 0.45f),
+                                RoundedCornerShape(20.dp)
+                            )
+                        } else Modifier
+                    ),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                    containerColor = if (match.isLive) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    }
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -131,13 +156,35 @@ fun MatchDetailScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     if (match.isLive) {
-                        Text(
-                            text = "● ÉLŐ",
-                            color = AccentGreen,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentGreen)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "ÉLŐ",
+                                color = AccentGreen,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                letterSpacing = 1.sp
+                            )
+                            match.liveMinuteLabel?.let {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = it,
+                                    color = AccentGreen,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
 
                     Row(
@@ -147,36 +194,65 @@ fun MatchDetailScreen(
                     ) {
                         TeamColumn(
                             logoUrl = match.homeTeam?.logo,
-                            name = match.homeTeam?.name ?: "Hazai csapat",
+                            name = match.homeTeam?.name ?: "Hazai",
                             modifier = Modifier.weight(1f)
                         )
 
-                        Text(
-                            text = "${match.homeScoreDisplay} : ${match.awayScoreDisplay}",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (match.isLive) AccentGreen else MaterialTheme.colorScheme.onSurface
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "${match.homeScoreDisplay}  :  ${match.awayScoreDisplay}",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (match.isLive) AccentGreen else MaterialTheme.colorScheme.onSurface
+                            )
+                            if (match.isNotStarted) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = match.kickoffTime,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
 
                         TeamColumn(
                             logoUrl = match.awayTeam?.logo,
-                            name = match.awayTeam?.name ?: "Vendég csapat",
+                            name = match.awayTeam?.name ?: "Vendég",
                             modifier = Modifier.weight(1f)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Státusz: ${match.statusLabel}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (match.isLive) AccentGreen.copy(alpha = 0.15f)
+                                else MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = match.statusLabel,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (match.isLive) AccentGreen else MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
             if (isLoadingExtras) {
-                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(28.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 3.dp
+                    )
                 }
             } else {
                 if (events.isNotEmpty()) {
@@ -186,7 +262,16 @@ fun MatchDetailScreen(
 
                 if (h2hMatches.isNotEmpty()) {
                     SectionTitle(title = "Korábbi találkozók")
-                    h2hMatches.forEach { h2h -> H2HRow(h2h) }
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            h2hMatches.forEach { h2h -> H2HRow(h2h) }
+                        }
+                    }
                 }
             }
         }
@@ -197,27 +282,38 @@ fun MatchDetailScreen(
 private fun SectionTitle(title: String) {
     Text(
         text = title,
-        style = MaterialTheme.typography.titleMedium,
+        fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurface
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(top = 4.dp)
     )
 }
 
 @Composable
 private fun EventsTimeline(events: List<MatchEventModel>, homeTeamId: Long?) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        events.forEach { event ->
-            val isHomeEvent = event.team?.id == homeTeamId
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = if (isHomeEvent) Arrangement.Start else Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (isHomeEvent) {
-                    EventContent(event)
-                } else {
-                    Spacer(modifier = Modifier.weight(1f))
-                    EventContent(event, alignEnd = true)
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            events.forEach { event ->
+                val isHomeEvent = event.team?.id == homeTeamId
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (isHomeEvent) Arrangement.Start else Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isHomeEvent) {
+                        EventContent(event)
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                        EventContent(event, alignEnd = true)
+                    }
                 }
             }
         }
@@ -253,7 +349,7 @@ private fun EventTexts(event: MatchEventModel, alignEnd: Boolean) {
             Text(
                 text = event.player,
                 fontSize = 12.sp,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -264,7 +360,7 @@ private fun H2HRow(match: MatchModel) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 7.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -272,7 +368,8 @@ private fun H2HRow(match: MatchModel) {
             text = "${match.homeTeam?.name ?: "-"} – ${match.awayTeam?.name ?: "-"}",
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            maxLines = 1
         )
         Text(
             text = "${match.homeScoreDisplay} : ${match.awayScoreDisplay}",
@@ -294,17 +391,20 @@ private fun TeamColumn(logoUrl: String?, name: String, modifier: Modifier = Modi
                 model = logoUrl,
                 contentDescription = null,
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape),
+                    .size(60.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentScale = ContentScale.Fit
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
         }
         Text(
             text = name,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
