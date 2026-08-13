@@ -35,6 +35,7 @@ import com.livefutar.app.ui.screens.HighlightsScreen
 import com.livefutar.app.ui.screens.HomeScreen
 import com.livefutar.app.ui.screens.LiveScreen
 import com.livefutar.app.ui.screens.MatchDetailScreen
+import com.livefutar.app.ui.screens.BetSlipScreen
 import com.livefutar.app.ui.screens.SettingsScreen
 import com.livefutar.app.ui.screens.StandingsScreen
 import com.livefutar.app.ui.screens.VideoPlayerScreen
@@ -60,6 +61,7 @@ class MainActivity : ComponentActivity() {
                 var selectedMatch by remember { mutableStateOf<MatchModel?>(null) }
                 var selectedHighlight by remember { mutableStateOf<HighlightModel?>(null) }
                 var standingsLeague by remember { mutableStateOf<LeagueModel?>(null) }
+                var showBetSlip by remember { mutableStateOf(false) }
 
                 var matches by remember { mutableStateOf<List<MatchModel>>(emptyList()) }
                 var highlights by remember { mutableStateOf<List<HighlightModel>>(emptyList()) }
@@ -137,7 +139,7 @@ class MainActivity : ComponentActivity() {
 
                 val liveCount = matches.count { it.isLive }
                 val showBottomBar =
-                    selectedMatch == null && selectedHighlight == null && standingsLeague == null
+                    selectedMatch == null && selectedHighlight == null && standingsLeague == null && !showBetSlip
 
                 Scaffold(
                     bottomBar = {
@@ -173,10 +175,14 @@ class MainActivity : ComponentActivity() {
                                         onBackClick = { standingsLeague = null }
                                     )
                                 }
+                                showBetSlip -> {
+                                    BetSlipScreen(onBackClick = { showBetSlip = false })
+                                }
                                 selectedMatch != null -> {
                                     MatchDetailScreen(
                                         match = selectedMatch!!,
                                         onBackClick = { selectedMatch = null },
+                                        onOpenBetSlip = { showBetSlip = true },
                                         onStandingsClick = { match ->
                                             match.league?.let { standingsLeague = it }
                                         }
