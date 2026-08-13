@@ -80,5 +80,6 @@ data class MatchScore(
 data class LeagueModel(
     val id: Long,
     val name: String?,
-    val logo: String?
+    val logo: String?,
+    val season: Int?
 )
