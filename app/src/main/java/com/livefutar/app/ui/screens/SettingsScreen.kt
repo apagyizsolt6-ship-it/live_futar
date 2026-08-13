@@ -1,5 +1,9 @@
 package com.livefutar.app.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,6 +44,12 @@ fun SettingsScreen(
     var savedMessage by remember { mutableStateOf(false) }
     var notifyFavorites by remember {
         mutableStateOf(PreferencesManager.getNotifyFavorites(context))
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        notifyFavorites = granted
+        PreferencesManager.setNotifyFavorites(context, granted)
     }
 
     Scaffold(
@@ -193,19 +203,31 @@ fun SettingsScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            "Gól és kezdés (hamarosan)",
+                            "Gól és kezdés a kedvenc csapataidnál",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Switch(
                         checked = notifyFavorites,
-                        onCheckedChange = {
-                            notifyFavorites = it
-                            PreferencesManager.setNotifyFavorites(context, it)
+                        onCheckedChange = { checked ->
+                            if (checked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                notifyFavorites = checked
+                                PreferencesManager.setNotifyFavorites(context, checked)
+                            }
                         }
                     )
                 }
+            }
+            if (notifyFavorites && com.livefutar.app.data.FavoritesManager.getFavoriteTeamIds(context).isEmpty()) {
+                Text(
+                    text = "Még nincs kedvenc csapatod – jelöld be a ☆ ikonnal a Meccsek fülön.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
             }
 
             SectionLabel("Névjegy")
