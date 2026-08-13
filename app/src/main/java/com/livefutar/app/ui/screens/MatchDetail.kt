@@ -680,7 +680,7 @@ private fun H2HTab(h2h: List<MatchModel>) {
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        if (m.hasScore) "\( {m.homeScoreDisplay}: \){m.awayScoreDisplay}" else "–",
+                        if (m.hasScore) "( {m.homeScoreDisplay}: ){m.awayScoreDisplay}" else "–",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.primary
