@@ -26,12 +26,14 @@ import androidx.compose.ui.unit.dp
 import com.livefutar.app.data.ApiKeyManager
 import com.livefutar.app.data.FavoritesManager
 import com.livefutar.app.data.FootballApiService
+import com.livefutar.app.data.PreferencesManager
 import com.livefutar.app.model.HighlightModel
 import com.livefutar.app.model.LeagueModel
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.LiveFutarBottomBar
 import com.livefutar.app.ui.screens.HighlightsScreen
 import com.livefutar.app.ui.screens.HomeScreen
+import com.livefutar.app.ui.screens.LiveScreen
 import com.livefutar.app.ui.screens.MatchDetailScreen
 import com.livefutar.app.ui.screens.SettingsScreen
 import com.livefutar.app.ui.screens.StandingsScreen
@@ -42,14 +44,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-// Élő adatok esetén ennyi időnként frissítünk automatikusan a háttérben.
 private const val AUTO_REFRESH_INTERVAL_MS = 60_000L
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            LiveFutarTheme {
+            val context = androidx.compose.ui.platform.LocalContext.current
+
+            var themeMode by remember { mutableStateOf(PreferencesManager.getThemeMode(context)) }
+            var accentKey by remember { mutableStateOf(PreferencesManager.getAccent(context)) }
+
+            LiveFutarTheme(themeMode = themeMode, accentKey = accentKey) {
                 var currentScreen by remember { mutableStateOf("home") }
                 var selectedMatch by remember { mutableStateOf<MatchModel?>(null) }
                 var selectedHighlight by remember { mutableStateOf<HighlightModel?>(null) }
@@ -60,18 +66,15 @@ class MainActivity : ComponentActivity() {
                 var isLoading by remember { mutableStateOf(true) }
                 var isRefreshing by remember { mutableStateOf(false) }
                 var errorMessage by remember { mutableStateOf<String?>(null) }
-                // A kiválasztott nap (dátumsáv), amire a meccseket/videókat lekérjük.
                 var selectedDate by remember { mutableStateOf(DateUtils.today()) }
-                // Minden alkalommal, amikor ez a szám nő, azonnal újratöltjük az adatokat
-                // (pl. a Beállításokban elmentett API kulcs után, vagy "Újrapróbálkozás" gombra).
                 var reloadTrigger by remember { mutableStateOf(0) }
 
-                val context = androidx.compose.ui.platform.LocalContext.current
                 val apiService = remember { FootballApiService.create() }
 
                 var favoriteTeamIds by remember { mutableStateOf(FavoritesManager.getFavoriteTeamIds(context)) }
                 var favoriteLeagueIds by remember { mutableStateOf(FavoritesManager.getFavoriteLeagueIds(context)) }
                 var showOnlyFavorites by remember { mutableStateOf(false) }
+                var showOnlyLive by remember { mutableStateOf(false) }
 
                 fun toggleTeamFavorite(teamId: Long) {
                     FavoritesManager.toggleTeamFavorite(context, teamId)
@@ -112,8 +115,6 @@ class MainActivity : ComponentActivity() {
                         }
                         errorMessage = null
                     } catch (e: Exception) {
-                        // Háttérben futó (csendes) frissítésnél nem zavarjuk meg a felhasználót
-                        // egy hibaüzenettel, ha épp csak az internet akadt egy pillanatra.
                         if (!isBackground) {
                             errorMessage = "Hiba történt az adatok betöltésekor: ${e.localizedMessage}"
                         }
@@ -123,13 +124,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Azonnali (teljes képernyős töltő) betöltés induláskor, dátumváltáskor és
-                // manuális újrapróbálkozáskor.
                 LaunchedEffect(reloadTrigger, selectedDate) {
                     fetchData(isBackground = false)
                 }
 
-                // Csendes, automatikus élő frissítés a háttérben, villogás nélkül.
                 LaunchedEffect(Unit) {
                     while (true) {
                         delay(AUTO_REFRESH_INTERVAL_MS)
@@ -137,14 +135,17 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                val liveCount = matches.count { it.isLive }
+                val showBottomBar =
+                    selectedMatch == null && selectedHighlight == null && standingsLeague == null
+
                 Scaffold(
                     bottomBar = {
-                        if (selectedMatch == null && selectedHighlight == null && standingsLeague == null) {
+                        if (showBottomBar) {
                             LiveFutarBottomBar(
                                 currentScreen = currentScreen,
-                                onScreenSelected = { screen ->
-                                    currentScreen = screen
-                                }
+                                liveCount = liveCount,
+                                onScreenSelected = { screen -> currentScreen = screen }
                             )
                         }
                     }
@@ -154,7 +155,7 @@ class MainActivity : ComponentActivity() {
                             .padding(paddingValues)
                             .fillMaxSize()
                     ) {
-                        if (isRefreshing) {
+                        if (isRefreshing && currentScreen != "live") {
                             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                         }
 
@@ -176,22 +177,29 @@ class MainActivity : ComponentActivity() {
                                     MatchDetailScreen(
                                         match = selectedMatch!!,
                                         onBackClick = { selectedMatch = null },
-                                        onStandingsClick = { match -> match.league?.let { standingsLeague = it } }
+                                        onStandingsClick = { match ->
+                                            match.league?.let { standingsLeague = it }
+                                        }
                                     )
                                 }
-                                // A Beállítások fül mindig elérhető, függetlenül attól,
-                                // hogy van-e még API kulcs vagy hiba történt-e a betöltéskor.
                                 currentScreen == "settings" -> {
                                     SettingsScreen(
+                                        themeMode = themeMode,
+                                        accentKey = accentKey,
+                                        onThemeModeChanged = { themeMode = it },
+                                        onAccentChanged = { accentKey = it },
                                         onApiKeySaved = { reloadTrigger++ }
                                     )
                                 }
                                 isLoading -> {
-                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
                                         CircularProgressIndicator()
                                     }
                                 }
-                                errorMessage != null -> {
+                                errorMessage != null && currentScreen != "settings" -> {
                                     Column(
                                         modifier = Modifier
                                             .fillMaxSize()
@@ -204,25 +212,53 @@ class MainActivity : ComponentActivity() {
                                         Button(onClick = { reloadTrigger++ }) {
                                             Text("Újrapróbálkozás")
                                         }
+                                        Spacer(modifier = Modifier.padding(4.dp))
+                                        Button(onClick = { currentScreen = "settings" }) {
+                                            Text("Beállítások")
+                                        }
                                     }
                                 }
-                                currentScreen == "home" -> HomeScreen(
-                                    matches = matches,
-                                    selectedDate = selectedDate,
-                                    onDateSelected = { newDate -> selectedDate = newDate },
-                                    favoriteTeamIds = favoriteTeamIds,
-                                    favoriteLeagueIds = favoriteLeagueIds,
-                                    onToggleTeamFavorite = { id -> toggleTeamFavorite(id) },
-                                    onToggleLeagueFavorite = { id -> toggleLeagueFavorite(id) },
-                                    showOnlyFavorites = showOnlyFavorites,
-                                    onToggleShowOnlyFavorites = { showOnlyFavorites = !showOnlyFavorites },
-                                    onMatchClick = { match -> selectedMatch = match },
-                                    onStandingsClick = { match -> match.league?.let { standingsLeague = it } }
-                                )
-                                currentScreen == "highlights" -> HighlightsScreen(
-                                    highlights = highlights,
-                                    onHighlightClick = { highlight -> selectedHighlight = highlight }
-                                )
+                                currentScreen == "live" -> {
+                                    LiveScreen(
+                                        matches = matches,
+                                        favoriteTeamIds = favoriteTeamIds,
+                                        onToggleTeamFavorite = { id -> toggleTeamFavorite(id) },
+                                        isRefreshing = isRefreshing,
+                                        onRefresh = { reloadTrigger++ },
+                                        onMatchClick = { match -> selectedMatch = match }
+                                    )
+                                }
+                                currentScreen == "home" -> {
+                                    HomeScreen(
+                                        matches = matches,
+                                        selectedDate = selectedDate,
+                                        onDateSelected = { newDate -> selectedDate = newDate },
+                                        favoriteTeamIds = favoriteTeamIds,
+                                        favoriteLeagueIds = favoriteLeagueIds,
+                                        onToggleTeamFavorite = { id -> toggleTeamFavorite(id) },
+                                        onToggleLeagueFavorite = { id -> toggleLeagueFavorite(id) },
+                                        showOnlyFavorites = showOnlyFavorites,
+                                        onToggleShowOnlyFavorites = {
+                                            showOnlyFavorites = !showOnlyFavorites
+                                        },
+                                        showOnlyLive = showOnlyLive,
+                                        onToggleShowOnlyLive = { showOnlyLive = !showOnlyLive },
+                                        isRefreshing = isRefreshing,
+                                        onRefresh = { reloadTrigger++ },
+                                        onMatchClick = { match -> selectedMatch = match },
+                                        onStandingsClick = { match ->
+                                            match.league?.let { standingsLeague = it }
+                                        }
+                                    )
+                                }
+                                currentScreen == "highlights" -> {
+                                    HighlightsScreen(
+                                        highlights = highlights,
+                                        onHighlightClick = { highlight ->
+                                            selectedHighlight = highlight
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
