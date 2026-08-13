@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.MatchCard
+import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.util.DateUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,15 +31,42 @@ fun HomeScreen(
     matches: List<MatchModel>,
     selectedDate: String,
     onDateSelected: (String) -> Unit,
-    onMatchClick: (MatchModel) -> Unit
+    favoriteTeamIds: Set<Long>,
+    favoriteLeagueIds: Set<Long>,
+    onToggleTeamFavorite: (Long) -> Unit,
+    onToggleLeagueFavorite: (Long) -> Unit,
+    showOnlyFavorites: Boolean,
+    onToggleShowOnlyFavorites: () -> Unit,
+    onMatchClick: (MatchModel) -> Unit,
+    onStandingsClick: (MatchModel) -> Unit
 ) {
+    val visibleMatches = if (showOnlyFavorites) {
+        matches.filter { match ->
+            (match.league?.id != null && favoriteLeagueIds.contains(match.league.id)) ||
+                (match.homeTeam?.id != null && favoriteTeamIds.contains(match.homeTeam.id)) ||
+                (match.awayTeam?.id != null && favoriteTeamIds.contains(match.awayTeam.id))
+        }
+    } else {
+        matches
+    }
+
     // Csoportosítás bajnokság szerint, a lista sorrendjét megtartva.
-    val groupedByLeague = matches.groupBy { it.league?.name ?: "Egyéb mérkőzések" }
+    val groupedByLeague = visibleMatches.groupBy { it.league?.name ?: "Egyéb mérkőzések" }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("LIVE FUTÁR ⚽ ÉLŐ", fontWeight = FontWeight.Bold) },
+                actions = {
+                    Text(
+                        text = if (showOnlyFavorites) "★" else "☆",
+                        fontSize = 20.sp,
+                        color = if (showOnlyFavorites) AccentGold else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .padding(end = 16.dp)
+                            .clickable { onToggleShowOnlyFavorites() }
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
@@ -66,7 +94,7 @@ fun HomeScreen(
                 )
             }
 
-            if (matches.isEmpty()) {
+            if (visibleMatches.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -74,19 +102,34 @@ fun HomeScreen(
                             .padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "Nincsenek mérkőzések ezen a napon", color = Color.Gray)
+                        Text(
+                            text = if (showOnlyFavorites) "Nincs kedvenc mérkőzés ezen a napon"
+                            else "Nincsenek mérkőzések ezen a napon",
+                            color = Color.Gray
+                        )
                     }
                 }
             } else {
                 groupedByLeague.forEach { (leagueName, leagueMatches) ->
                     item {
+                        val leagueId = leagueMatches.firstOrNull()?.league?.id
                         LeagueHeader(
                             leagueName = leagueName,
-                            leagueLogo = leagueMatches.firstOrNull()?.league?.logo
+                            leagueLogo = leagueMatches.firstOrNull()?.league?.logo,
+                            isFavorite = leagueId != null && favoriteLeagueIds.contains(leagueId),
+                            onToggleFavorite = { leagueId?.let { onToggleLeagueFavorite(it) } },
+                            onStandingsClick = { leagueMatches.firstOrNull()?.let(onStandingsClick) }
                         )
                     }
                     items(leagueMatches) { match ->
-                        MatchCard(match = match, onClick = { onMatchClick(match) })
+                        MatchCard(
+                            match = match,
+                            isHomeFavorite = match.homeTeam?.id != null && favoriteTeamIds.contains(match.homeTeam.id),
+                            isAwayFavorite = match.awayTeam?.id != null && favoriteTeamIds.contains(match.awayTeam.id),
+                            onToggleHomeFavorite = { match.homeTeam?.id?.let(onToggleTeamFavorite) },
+                            onToggleAwayFavorite = { match.awayTeam?.id?.let(onToggleTeamFavorite) },
+                            onClick = { onMatchClick(match) }
+                        )
                     }
                 }
             }
@@ -129,7 +172,13 @@ private fun DateStrip(selectedDate: String, onDateSelected: (String) -> Unit) {
 }
 
 @Composable
-private fun LeagueHeader(leagueName: String, leagueLogo: String?) {
+private fun LeagueHeader(
+    leagueName: String,
+    leagueLogo: String?,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
+    onStandingsClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -151,7 +200,23 @@ private fun LeagueHeader(leagueName: String, leagueLogo: String?) {
             text = leagueName,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Gray
+            color = Color.Gray,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = "Tabella",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clickable { onStandingsClick() }
+                .padding(end = 12.dp)
+        )
+        Text(
+            text = if (isFavorite) "★" else "☆",
+            fontSize = 15.sp,
+            color = if (isFavorite) AccentGold else Color.Gray,
+            modifier = Modifier.clickable { onToggleFavorite() }
         )
     }
 }
