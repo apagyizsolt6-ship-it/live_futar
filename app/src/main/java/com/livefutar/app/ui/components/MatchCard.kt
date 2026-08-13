@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,11 +25,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.livefutar.app.model.MatchModel
+import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MatchCard(match: MatchModel, onClick: () -> Unit) {
+fun MatchCard(
+    match: MatchModel,
+    isHomeFavorite: Boolean,
+    isAwayFavorite: Boolean,
+    onToggleHomeFavorite: () -> Unit,
+    onToggleAwayFavorite: () -> Unit,
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -57,12 +66,16 @@ fun MatchCard(match: MatchModel, onClick: () -> Unit) {
             ) {
                 TeamRow(
                     logoUrl = match.homeTeam?.logo,
-                    name = match.homeTeam?.name ?: "Hazai csapat"
+                    name = match.homeTeam?.name ?: "Hazai csapat",
+                    isFavorite = isHomeFavorite,
+                    onToggleFavorite = onToggleHomeFavorite
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 TeamRow(
                     logoUrl = match.awayTeam?.logo,
-                    name = match.awayTeam?.name ?: "Vendég csapat"
+                    name = match.awayTeam?.name ?: "Vendég csapat",
+                    isFavorite = isAwayFavorite,
+                    onToggleFavorite = onToggleAwayFavorite
                 )
             }
 
@@ -98,7 +111,12 @@ fun MatchCard(match: MatchModel, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TeamRow(logoUrl: String?, name: String) {
+private fun TeamRow(
+    logoUrl: String?,
+    name: String,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (!logoUrl.isNullOrBlank()) {
             AsyncImage(
@@ -124,7 +142,15 @@ private fun TeamRow(logoUrl: String?, name: String) {
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1
+            maxLines = 1,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = if (isFavorite) "★" else "☆",
+            fontSize = 13.sp,
+            color = if (isFavorite) AccentGold else Color.Gray,
+            modifier = Modifier.clickable { onToggleFavorite() }
         )
     }
 }
