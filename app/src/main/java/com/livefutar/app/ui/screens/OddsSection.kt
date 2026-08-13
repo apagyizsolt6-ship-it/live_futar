@@ -16,14 +16,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,23 +50,58 @@ import com.livefutar.app.model.OddValue
 import java.util.Locale
 
 /**
- * OddsSection
+ * LIVE FUTÁR - OddsSection
  *
- * Új, kompakt odds megjelenítés.
+ * Verzió:
+ *  - összevont odds piacok
+ *  - nyitható / összecsukható piacok
+ *  - 1X2 rendezett sorrend
+ *  - Gólok száma egy közös blokkban
+ *  - Szögletek egy közös blokkban
+ *  - Pontos eredmény egy közös blokkban
+ *  - BTTS
+ *  - hendikep piacok
+ *  - félidős piacok
+ *  - több fogadóiroda támogatása
+ *  - legjobb odds kiemelése
+ *  - odds kattintás -> szelvény
  *
- * FONTOS:
- * - Az API-ból érkező összes piac megmarad.
- * - Az összes bookmaker megmarad.
- * - Az összes odds megmarad.
- * - Alapból csak a legjobb oddsok láthatók.
- * - Piaconként ki-/becsukható a teljes lista.
- * - A részletes lista a bookmaker oddsokat mutatja.
- * - A legjobb odds mindenhol külön kiemelést kap.
- * - A piacnevek és alapvető kimenetelek magyarítva vannak.
- *
- * A szelvényhez adás funkció változatlanul működik:
- * az odds gombra koppintva BetSlipSelection készül.
+ * Az API-hívás csak akkor történik meg,
+ * amikor az Odds fül ténylegesen megjelenik.
  */
+
+private const val MAX_VISIBLE_VALUES = 6
+
+private data class OddsMarketGroup(
+    val key: String,
+    val title: String,
+    val values: List<OddsDisplayValue>
+)
+
+private data class OddsDisplayValue(
+    val value: OddValue,
+    val bookmakerName: String
+)
+
+private enum class MarketCategory {
+    RESULT,
+    DOUBLE_CHANCE,
+    BTTS,
+    TOTAL_GOALS,
+    TEAM_TOTAL,
+    CORRECT_SCORE,
+    TOTAL_CORNERS,
+    CORNERS_HANDICAP,
+    HANDICAP,
+    FIRST_HALF_RESULT,
+    SECOND_HALF_RESULT,
+    FIRST_HALF_GOALS,
+    SECOND_HALF_GOALS,
+    FIRST_TEAM_TO_SCORE,
+    LAST_TEAM_TO_SCORE,
+    OTHER
+}
+
 @Composable
 fun OddsSection(
     match: MatchModel,
@@ -96,7 +136,7 @@ fun OddsSection(
         }
 
         try {
-            val type = if (match.isLive) {
+            val oddsType = if (match.isLive) {
                 "live"
             } else {
                 "prematch"
@@ -105,7 +145,7 @@ fun OddsSection(
             val response = apiService.getOdds(
                 apiKey = apiKey,
                 matchId = match.id,
-                oddsType = type,
+                oddsType = oddsType,
                 limit = 5
             )
 
@@ -121,6 +161,7 @@ fun OddsSection(
                     val validValues = bookmaker.values
                         .orEmpty()
                         .filter { value ->
+
                             val odd = value.odd
 
                             !value.value.isNullOrBlank() &&
@@ -142,9 +183,9 @@ fun OddsSection(
                 errorMessage =
                     "Ehhez a mérkőzéshez jelenleg nincs elérhető odds."
             }
-        } catch (e: Exception) {
-            odds = emptyList()
 
+        } catch (_: Exception) {
+            odds = emptyList()
             errorMessage =
                 "Az oddsok most nem tölthetők be."
         } finally {
@@ -157,7 +198,9 @@ fun OddsSection(
             .fillMaxSize()
             .padding(horizontal = 12.dp)
     ) {
+
         when {
+
             isLoading -> {
                 OddsLoading()
             }
@@ -179,22 +222,21 @@ fun OddsSection(
     }
 }
 
-/* ============================================================
- * LOADING
- * ============================================================
- */
-
 @Composable
 private fun OddsLoading() {
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             CircularProgressIndicator(
-                modifier = Modifier.size(38.dp)
+                modifier = Modifier.size(38.dp),
+                color = MaterialTheme.colorScheme.primary
             )
 
             Spacer(
@@ -210,19 +252,16 @@ private fun OddsLoading() {
     }
 }
 
-/* ============================================================
- * EMPTY STATE
- * ============================================================
- */
-
 @Composable
 private fun OddsEmptyState(
     message: String?
 ) {
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -233,6 +272,7 @@ private fun OddsEmptyState(
                     MaterialTheme.colorScheme.surface
             )
         ) {
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -240,6 +280,7 @@ private fun OddsEmptyState(
                 horizontalAlignment =
                     Alignment.CenterHorizontally
             ) {
+
                 Text(
                     text = "Nincs elérhető odds",
                     fontSize = 17.sp,
@@ -251,11 +292,14 @@ private fun OddsEmptyState(
                 )
 
                 Text(
-                    text = message
-                        ?: "Az odds adat jelenleg nem érhető el.",
+                    text =
+                        message
+                            ?: "Az odds adat jelenleg nem érhető el.",
                     fontSize = 13.sp,
                     color =
-                        MaterialTheme.colorScheme.onSurfaceVariant,
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
             }
@@ -263,109 +307,72 @@ private fun OddsEmptyState(
     }
 }
 
-/* ============================================================
- * FŐ ODDS LISTA
- * ============================================================
- */
-
 @Composable
 private fun OddsList(
     odds: List<BookmakerOdd>,
     match: MatchModel,
     onAddToSlip: (BetSlipSelection) -> Unit
 ) {
-    /*
-     * Piacok csoportosítása.
-     *
-     * Minden piac külön kártya lesz.
-     */
-    val markets = remember(odds) {
-        odds
-            .groupBy { bookmaker ->
-                bookmaker.market
-                    ?.trim()
-                    ?.takeIf { it.isNotEmpty() }
-                    ?: "Egyéb"
-            }
-            .toList()
-    }
 
-    /*
-     * Alapból az ELSŐ piac legyen nyitva.
-     *
-     * A többi zárt.
-     */
-    var expandedMarkets by remember(markets) {
-        mutableStateOf(
-            if (markets.isNotEmpty()) {
-                setOf(markets.first().first)
-            } else {
-                emptySet()
+    val groups = buildMarketGroups(
+        odds = odds,
+        match = match
+    )
+
+    val expandedMarkets =
+        remember(match.id) {
+            mutableStateMapOf<String, Boolean>().apply {
+
+                groups.forEachIndexed { index, group ->
+
+                    put(
+                        group.key,
+                        index == 0
+                    )
+                }
             }
-        )
-    }
+        }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement =
             Arrangement.spacedBy(10.dp)
     ) {
+
         item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 8.dp,
-                        bottom = 2.dp
-                    )
-            ) {
-                Text(
-                    text =
-                        "Minden elérhető piac • legjobb odds elöl",
-                    fontSize = 12.sp,
-                    color =
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                )
 
-                Spacer(
-                    modifier = Modifier.height(4.dp)
+            Text(
+                text =
+                    "Koppints egy oddsszámra a szelvényhez adáshoz",
+                fontSize = 12.sp,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant,
+                modifier = Modifier.padding(
+                    top = 8.dp,
+                    bottom = 2.dp
                 )
-
-                Text(
-                    text =
-                        "Koppints egy piacra a teljes oddslista megnyitásához.",
-                    fontSize = 11.sp,
-                    color =
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            )
         }
 
         items(
-            items = markets,
-            key = { entry ->
-                entry.first
+            items = groups,
+            key = {
+                it.key
             }
-        ) { marketEntry ->
-
-            val marketName = marketEntry.first
-            val bookmakers = marketEntry.second
+        ) { group ->
 
             val expanded =
-                expandedMarkets.contains(marketName)
+                expandedMarkets[group.key] ?: false
 
-            OddsMarketCard(
-                marketName = marketName,
-                bookmakers = bookmakers,
-                match = match,
+            OddsMarketGroupCard(
+                group = group,
                 expanded = expanded,
+                match = match,
                 onToggle = {
-                    expandedMarkets =
-                        if (expanded) {
-                            expandedMarkets - marketName
-                        } else {
-                            expandedMarkets + marketName
-                        }
+                    expandedMarkets[group.key] =
+                        !expanded
                 },
                 onAddToSlip = onAddToSlip
             )
@@ -379,292 +386,180 @@ private fun OddsList(
     }
 }
 
-/* ============================================================
- * PIAC KÁRTYA
- * ============================================================
- */
-
 @Composable
-private fun OddsMarketCard(
-    marketName: String,
-    bookmakers: List<BookmakerOdd>,
-    match: MatchModel,
+private fun OddsMarketGroupCard(
+    group: OddsMarketGroup,
     expanded: Boolean,
+    match: MatchModel,
     onToggle: () -> Unit,
     onAddToSlip: (BetSlipSelection) -> Unit
 ) {
-    val marketGroups =
-        remember(bookmakers) {
-            buildMarketGroups(bookmakers)
-        }
-
-    val totalOdds =
-        bookmakers
-            .flatMap {
-                it.values.orEmpty()
-            }
-            .count {
-                val odd = it.odd
-
-                !it.value.isNullOrBlank() &&
-                    odd != null &&
-                    odd.isFinite() &&
-                    odd > 0.0
-            }
-
-    val selectionGroups =
-        marketGroups
-            .sortedByDescending {
-                it.bestOdd
-            }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor =
                 MaterialTheme.colorScheme.surface
         )
     ) {
+
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
 
-            /*
-             * FEJLÉC
-             */
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable {
                         onToggle()
                     }
-                    .padding(16.dp)
+                    .padding(
+                        horizontal = 14.dp,
+                        vertical = 13.dp
+                    ),
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment =
-                        Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = huMarket(marketName),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 2,
-                            overflow =
-                                TextOverflow.Ellipsis
-                        )
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(3.dp)
-                        )
-
-                        Text(
-                            text =
-                                "$totalOdds elérhető odds • " +
-                                    "${selectionGroups.size} kimenetel",
-                            fontSize = 11.sp,
-                            color =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
 
                     Text(
-                        text =
-                            if (expanded) {
-                                "⌃"
-                            } else {
-                                "⌄"
-                            },
-                        fontSize = 25.sp,
-                        fontWeight = FontWeight.Bold,
-                        color =
-                            MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                Spacer(
-                    modifier = Modifier.height(12.dp)
-                )
-
-                /*
-                 * ÖSSZECSUKVA:
-                 *
-                 * Csak a legjobb oddsok.
-                 *
-                 * Legfeljebb 3 kimenetelt mutatunk,
-                 * hogy a kártya tényleg kompakt maradjon.
-                 */
-                if (!expanded) {
-
-                    selectionGroups
-                        .take(3)
-                        .forEach { group ->
-
-                            CompactBestSelectionRow(
-                                group = group,
-                                match = match,
-                                marketName = marketName,
-                                onAddToSlip =
-                                    onAddToSlip
-                            )
-
-                            Spacer(
-                                modifier =
-                                    Modifier.height(7.dp)
-                            )
-                        }
-
-                    if (selectionGroups.size > 3) {
-                        Text(
-                            text =
-                                "+ ${selectionGroups.size - 3} további kimenetel",
-                            fontSize = 11.sp,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-
-                    Spacer(
-                        modifier = Modifier.height(4.dp)
+                        text = group.title,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
                     )
 
                     Text(
                         text =
-                            "⌄ Összes odds megjelenítése",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
+                            "${group.values.size} lehetőség",
+                        fontSize = 11.sp,
                         color =
-                            MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            /*
-             * KINYITVA:
-             *
-             * Minden kimenetel + minden bookmaker.
-             */
-            if (expanded) {
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(
                             MaterialTheme
                                 .colorScheme
-                                .outline
-                                .copy(alpha = 0.12f)
-                        )
+                                .onSurfaceVariant
+                    )
+                }
+
+                Icon(
+                    imageVector =
+                        if (expanded) {
+                            Icons.Default.ExpandLess
+                        } else {
+                            Icons.Default.ExpandMore
+                        },
+                    contentDescription =
+                        if (expanded) {
+                            "Összecsukás"
+                        } else {
+                            "Megnyitás"
+                        },
+                    tint =
+                        MaterialTheme
+                            .colorScheme
+                            .primary
                 )
+            }
+
+            if (expanded) {
 
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(
-                            start = 16.dp,
-                            end = 16.dp,
-                            bottom = 16.dp
+                            start = 12.dp,
+                            end = 12.dp,
+                            bottom = 12.dp
                         )
                 ) {
 
-                    Text(
-                        text =
-                            "Összes elérhető odds",
-                        fontSize = 12.sp,
-                        fontWeight =
-                            FontWeight.SemiBold,
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .onSurfaceVariant,
-                        modifier =
-                            Modifier.padding(
-                                top = 12.dp,
-                                bottom = 12.dp
-                            )
-                    )
+                    val visibleValues =
+                        group.values
+                            .take(MAX_VISIBLE_VALUES)
 
-                    selectionGroups.forEach { group ->
+                    visibleValues.forEach { displayValue ->
 
-                        ExpandedSelectionGroup(
-                            group = group,
-                            marketName = marketName,
+                        OddsValueRow(
+                            displayValue = displayValue,
+                            marketName = group.title,
                             match = match,
-                            onAddToSlip =
-                                onAddToSlip
+                            onAddToSlip = onAddToSlip
                         )
 
                         Spacer(
                             modifier =
-                                Modifier.height(12.dp)
+                                Modifier.height(6.dp)
                         )
                     }
 
-                    Text(
-                        text =
-                            "⌃ Összes odds elrejtése",
-                        fontSize = 12.sp,
-                        fontWeight =
-                            FontWeight.SemiBold,
-                        color =
-                            MaterialTheme.colorScheme.primary,
-                        modifier =
-                            Modifier
+                    if (group.values.size > MAX_VISIBLE_VALUES) {
+
+                        Spacer(
+                            modifier =
+                                Modifier.height(4.dp)
+                        )
+
+                        Text(
+                            text =
+                                "+ ${group.values.size - MAX_VISIBLE_VALUES} további odds",
+                            fontSize = 11.sp,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .primary,
+                            modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    onToggle()
-                                }
                                 .padding(
-                                    vertical = 8.dp
-                                ),
-                        textAlign = TextAlign.Center
-                    )
+                                    horizontal = 4.dp,
+                                    vertical = 4.dp
+                                )
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-/* ============================================================
- * KOMPAKT LEGJOBB ODDS
- * ============================================================
- */
-
 @Composable
-private fun CompactBestSelectionRow(
-    group: MarketSelectionGroup,
-    match: MatchModel,
+private fun OddsValueRow(
+    displayValue: OddsDisplayValue,
     marketName: String,
+    match: MatchModel,
     onAddToSlip: (BetSlipSelection) -> Unit
 ) {
-    val best = group.bestEntry
+
+    val value = displayValue.value
+
+    val selection =
+        value.value
+            ?.trim()
+            .orEmpty()
+
+    val odd =
+        value.odd
+            ?: return
+
+    if (
+        selection.isBlank() ||
+        !odd.isFinite() ||
+        odd <= 0.0
+    ) {
+        return
+    }
+
+    val label =
+        selectionLabel(
+            selection = selection,
+            match = match
+        )
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(
-                RoundedCornerShape(12.dp)
-            )
-            .background(
-                MaterialTheme
-                    .colorScheme
-                    .primary
-                    .copy(alpha = 0.06f)
-            )
-            .padding(
-                horizontal = 10.dp,
-                vertical = 8.dp
-            ),
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement =
+            Arrangement.spacedBy(8.dp),
         verticalAlignment =
             Alignment.CenterVertically
     ) {
@@ -672,547 +567,550 @@ private fun CompactBestSelectionRow(
         Column(
             modifier = Modifier.weight(1f)
         ) {
+
             Text(
-                text = group.displayName,
+                text = label,
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
             Text(
-                text = best.bookmakerName,
+                text =
+                    displayValue.bookmakerName,
                 fontSize = 10.sp,
                 color =
                     MaterialTheme
                         .colorScheme
                         .onSurfaceVariant,
                 maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = "LEGJOBB ODDS",
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Bold,
-                color =
-                    MaterialTheme.colorScheme.primary
+                overflow = TextOverflow.Ellipsis
             )
         }
 
-        BestOddsChip(
-            odd = best.odd,
-            onClick = {
-                addToSlip(
-                    match = match,
-                    marketName = marketName,
-                    selection = best.selection,
-                    odd = best.odd,
-                    bookmakerName =
-                        best.bookmakerName,
-                    onAddToSlip = onAddToSlip
+        Box(
+            modifier = Modifier
+                .clip(
+                    RoundedCornerShape(10.dp)
                 )
-            }
-        )
-    }
-}
-
-/* ============================================================
- * KINYITOTT KIMENETEL
- * ============================================================
- */
-
-@Composable
-private fun ExpandedSelectionGroup(
-    group: MarketSelectionGroup,
-    marketName: String,
-    match: MatchModel,
-    onAddToSlip: (BetSlipSelection) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-
-        /*
-         * Kimenetel neve
-         */
-        Text(
-            text = group.displayName,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            modifier =
-                Modifier.padding(
-                    bottom = 7.dp
-                )
-        )
-
-        /*
-         * Bookmakerek:
-         *
-         * LEGJOBB ODDS FELÜL.
-         */
-        group.entries.forEachIndexed { index, entry ->
-
-            ExpandedBookmakerRow(
-                entry = entry,
-                isBest = index == 0,
-                marketName = marketName,
-                match = match,
-                onAddToSlip = onAddToSlip
-            )
-
-            if (index != group.entries.lastIndex) {
-                Spacer(
-                    modifier = Modifier.height(5.dp)
-                )
-            }
-        }
-    }
-}
-
-/* ============================================================
- * BOOKMAKER SOR
- * ============================================================
- */
-
-@Composable
-private fun ExpandedBookmakerRow(
-    entry: MarketOddEntry,
-    isBest: Boolean,
-    marketName: String,
-    match: MatchModel,
-    onAddToSlip: (BetSlipSelection) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(
-                RoundedCornerShape(10.dp)
-            )
-            .background(
-                if (isBest) {
+                .background(
                     MaterialTheme
                         .colorScheme
                         .primary
-                        .copy(alpha = 0.08f)
-                } else {
-                    MaterialTheme
-                        .colorScheme
-                        .surface
-                }
-            )
-            .padding(
-                horizontal = 10.dp,
-                vertical = 7.dp
-            ),
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) {
-
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text = entry.bookmakerName,
-                fontSize = 12.sp,
-                fontWeight =
-                    if (isBest) {
-                        FontWeight.Bold
-                    } else {
-                        FontWeight.Medium
-                    },
-                color =
-                    if (isBest) {
-                        MaterialTheme
-                            .colorScheme
-                            .primary
-                    } else {
-                        MaterialTheme
-                            .colorScheme
-                            .onSurface
-                    },
-                maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis
-            )
-
-            if (isBest) {
-                Text(
-                    text = "LEGJOBB ODDS",
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Bold,
+                        .copy(alpha = 0.10f)
+                )
+                .border(
+                    width = 1.dp,
                     color =
                         MaterialTheme
                             .colorScheme
                             .primary
+                            .copy(alpha = 0.45f),
+                    shape =
+                        RoundedCornerShape(10.dp)
                 )
-            }
-        }
+                .clickable {
 
-        OddsChip(
-            odd = entry.odd,
-            isBest = isBest,
-            onClick = {
-                addToSlip(
-                    match = match,
-                    marketName = marketName,
-                    selection = entry.selection,
-                    odd = entry.odd,
-                    bookmakerName =
-                        entry.bookmakerName,
-                    onAddToSlip = onAddToSlip
-                )
-            }
-        )
-    }
-}
-
-/* ============================================================
- * LEGJOBB ODDS CHIP
- * ============================================================
- */
-
-@Composable
-private fun BestOddsChip(
-    odd: Double,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .clip(
-                RoundedCornerShape(10.dp)
-            )
-            .background(
-                MaterialTheme
-                    .colorScheme
-                    .primary
-                    .copy(alpha = 0.12f)
-            )
-            .border(
-                width = 1.5.dp,
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .primary,
-                shape =
-                    RoundedCornerShape(10.dp)
-            )
-            .clickable {
-                onClick()
-            }
-            .padding(
-                horizontal = 14.dp,
-                vertical = 8.dp
-            ),
-        contentAlignment =
-            Alignment.Center
-    ) {
-        Text(
-            text =
-                String.format(
-                    Locale.US,
-                    "%.2f",
-                    odd
-                ),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color =
-                MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
-/* ============================================================
- * NORMÁL ODDS CHIP
- * ============================================================
- */
-
-@Composable
-private fun OddsChip(
-    odd: Double,
-    isBest: Boolean,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .clip(
-                RoundedCornerShape(10.dp)
-            )
-            .background(
-                if (isBest) {
-                    MaterialTheme
-                        .colorScheme
-                        .primary
-                        .copy(alpha = 0.12f)
-                } else {
-                    MaterialTheme
-                        .colorScheme
-                        .primary
-                        .copy(alpha = 0.06f)
+                    onAddToSlip(
+                        BetSlipSelection(
+                            matchId = match.id,
+                            homeName =
+                                match.homeTeam?.name
+                                    ?: "Hazai",
+                            awayName =
+                                match.awayTeam?.name
+                                    ?: "Vendég",
+                            leagueName =
+                                match.leagueDisplayName,
+                            market = marketName,
+                            selection = selection,
+                            odd = odd,
+                            bookmakerName =
+                                displayValue.bookmakerName
+                        )
+                    )
                 }
-            )
-            .border(
-                width =
-                    if (isBest) {
-                        1.5.dp
-                    } else {
-                        1.dp
-                    },
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 9.dp
+                ),
+            contentAlignment =
+                Alignment.Center
+        ) {
+
+            Text(
+                text =
+                    String.format(
+                        Locale.US,
+                        "%.2f",
+                        odd
+                    ),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
                 color =
                     MaterialTheme
                         .colorScheme
                         .primary
-                        .copy(
-                            alpha =
-                                if (isBest) {
-                                    0.9f
-                                } else {
-                                    0.45f
-                                }
-                        ),
-                shape =
-                    RoundedCornerShape(10.dp)
             )
-            .clickable {
-                onClick()
-            }
-            .padding(
-                horizontal = 14.dp,
-                vertical = 8.dp
-            ),
-        contentAlignment =
-            Alignment.Center
-    ) {
-        Text(
-            text =
-                String.format(
-                    Locale.US,
-                    "%.2f",
-                    odd
-                ),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color =
-                MaterialTheme.colorScheme.primary
-        )
+        }
     }
 }
 
-/* ============================================================
- * ADATSTRUKTÚRÁK
- * ============================================================
- */
-
-private data class MarketOddEntry(
-    val selection: String,
-    val displayName: String,
-    val bookmakerName: String,
-    val odd: Double
-)
-
-private data class MarketSelectionGroup(
-    val selection: String,
-    val displayName: String,
-    val entries: List<MarketOddEntry>
-) {
-    val bestEntry: MarketOddEntry
-        get() = entries.first()
-
-    val bestOdd: Double
-        get() = bestEntry.odd
-}
-
-/* ============================================================
- * PIAC FELDOLGOZÁSA
- * ============================================================
- */
+/* -------------------------------------------------------------------------- */
+/* MARKET GROUPING                                                           */
+/* -------------------------------------------------------------------------- */
 
 private fun buildMarketGroups(
-    bookmakers: List<BookmakerOdd>
-): List<MarketSelectionGroup> {
+    odds: List<BookmakerOdd>,
+    match: MatchModel
+): List<OddsMarketGroup> {
+
+    val rawValues =
+        odds.flatMap { bookmaker ->
+
+            val bookmakerName =
+                bookmaker.bookmakerName
+                    ?.trim()
+                    .takeUnless {
+                        it.isNullOrBlank()
+                    }
+                    ?: "Fogadóiroda"
+
+            bookmaker.values
+                .orEmpty()
+                .mapNotNull { value ->
+
+                    val odd = value.odd
+
+                    if (
+                        value.value.isNullOrBlank() ||
+                        odd == null ||
+                        !odd.isFinite() ||
+                        odd <= 0.0
+                    ) {
+                        null
+                    } else {
+
+                        OddsRawValue(
+                            market =
+                                bookmaker.market
+                                    ?.trim()
+                                    .orEmpty(),
+                            value = value,
+                            bookmakerName =
+                                bookmakerName
+                        )
+                    }
+                }
+        }
 
     val grouped =
-        mutableMapOf<String, MutableList<MarketOddEntry>>()
+        rawValues.groupBy {
+            marketKey(it.market)
+        }
 
-    bookmakers.forEach { bookmaker ->
+    val orderedKeys =
+        listOf(
+            MarketCategory.RESULT,
+            MarketCategory.DOUBLE_CHANCE,
+            MarketCategory.BTTS,
+            MarketCategory.TOTAL_GOALS,
+            MarketCategory.TEAM_TOTAL,
+            MarketCategory.CORRECT_SCORE,
+            MarketCategory.TOTAL_CORNERS,
+            MarketCategory.CORNERS_HANDICAP,
+            MarketCategory.HANDICAP,
+            MarketCategory.FIRST_HALF_RESULT,
+            MarketCategory.SECOND_HALF_RESULT,
+            MarketCategory.FIRST_HALF_GOALS,
+            MarketCategory.SECOND_HALF_GOALS,
+            MarketCategory.FIRST_TEAM_TO_SCORE,
+            MarketCategory.LAST_TEAM_TO_SCORE,
+            MarketCategory.OTHER
+        )
 
-        val bookmakerName =
-            bookmaker.bookmakerName
-                ?.trim()
-                ?.takeIf {
-                    it.isNotEmpty()
-                }
-                ?: "Ismeretlen iroda"
+    return orderedKeys
+        .flatMap { category ->
 
-        bookmaker.values
-            .orEmpty()
-            .forEach { value ->
+            val entries =
+                grouped[category]
+                    .orEmpty()
 
-                val selection =
-                    value.value
-                        ?.trim()
-                        .orEmpty()
+            if (entries.isEmpty()) {
+                emptyList()
+            } else {
 
-                val odd =
-                    value.odd
-
-                if (
-                    selection.isBlank() ||
-                    odd == null ||
-                    !odd.isFinite() ||
-                    odd <= 0.0
-                ) {
-                    return@forEach
-                }
-
-                /*
-                 * A groupinghez normalizált kulcs.
-                 */
-                val key =
-                    normalizeSelectionKey(
-                        selection
+                val displayValues =
+                    prepareDisplayValues(
+                        category = category,
+                        values = entries,
+                        match = match
                     )
 
-                val displayName =
-                    selectionDisplayName(
-                        selection
+                listOf(
+                    OddsMarketGroup(
+                        key =
+                            category.name,
+                        title =
+                            marketCategoryTitle(
+                                category
+                            ),
+                        values =
+                            displayValues
                     )
-
-                val entry =
-                    MarketOddEntry(
-                        selection = selection,
-                        displayName = displayName,
-                        bookmakerName = bookmakerName,
-                        odd = odd
-                    )
-
-                grouped
-                    .getOrPut(key) {
-                        mutableListOf()
-                    }
-                    .add(entry)
+                )
             }
-    }
+        }
+}
 
-    return grouped
-        .map { (_, entries) ->
+private data class OddsRawValue(
+    val market: String,
+    val value: OddValue,
+    val bookmakerName: String
+)
 
-            val sorted =
-                entries.sortedByDescending {
-                    it.odd
-                }
+private fun prepareDisplayValues(
+    category: MarketCategory,
+    values: List<OddsRawValue>,
+    match: MatchModel
+): List<OddsDisplayValue> {
 
-            MarketSelectionGroup(
-                selection =
-                    sorted.first().selection,
-                displayName =
-                    sorted.first().displayName,
-                entries = sorted
+    val converted =
+        values.map {
+            OddsDisplayValue(
+                value = it.value,
+                bookmakerName = it.bookmakerName
             )
         }
-        .sortedByDescending {
-            it.bestOdd
+
+    return when (category) {
+
+        MarketCategory.RESULT -> {
+
+            converted.sortedBy {
+                resultOrder(
+                    selection =
+                        it.value.value
+                            ?.trim()
+                            .orEmpty(),
+                    match = match
+                )
+            }
         }
+
+        MarketCategory.TOTAL_GOALS,
+        MarketCategory.FIRST_HALF_GOALS,
+        MarketCategory.SECOND_HALF_GOALS -> {
+
+            converted.sortedWith(
+                compareBy(
+                    {
+                        extractNumber(
+                            it.value.value
+                                ?.trim()
+                                .orEmpty()
+                        )
+                    },
+                    {
+                        overUnderOrder(
+                            it.value.value
+                                ?.trim()
+                                .orEmpty()
+                        )
+                    }
+                )
+            )
+        }
+
+        MarketCategory.TOTAL_CORNERS,
+        MarketCategory.CORNERS_HANDICAP -> {
+
+            converted.sortedWith(
+                compareBy(
+                    {
+                        extractNumber(
+                            it.value.value
+                                ?.trim()
+                                .orEmpty()
+                        )
+                    },
+                    {
+                        overUnderOrder(
+                            it.value.value
+                                ?.trim()
+                                .orEmpty()
+                        )
+                    }
+                )
+            )
+        }
+
+        MarketCategory.CORRECT_SCORE -> {
+
+            converted.sortedWith(
+                compareBy {
+                    correctScoreOrder(
+                        it.value.value
+                            ?.trim()
+                            .orEmpty()
+                    )
+                }
+            )
+        }
+
+        else -> {
+
+            converted.sortedByDescending {
+                it.value.odd ?: 0.0
+            }
+        }
+    }
 }
 
-/* ============================================================
- * SZELVÉNYHEZ ADÁS
- * ============================================================
- */
+/* -------------------------------------------------------------------------- */
+/* MARKET DETECTION                                                           */
+/* -------------------------------------------------------------------------- */
 
-private fun addToSlip(
-    match: MatchModel,
-    marketName: String,
-    selection: String,
-    odd: Double,
-    bookmakerName: String,
-    onAddToSlip: (BetSlipSelection) -> Unit
-) {
-    onAddToSlip(
-        BetSlipSelection(
-            matchId = match.id,
-            homeName =
-                match.homeTeam?.name
-                    ?: "Hazai",
-            awayName =
-                match.awayTeam?.name
-                    ?: "Vendég",
-            leagueName =
-                match.leagueDisplayName,
-            market = marketName,
-            selection = selection,
-            odd = odd,
-            bookmakerName = bookmakerName
-        )
-    )
+private fun marketKey(
+    market: String
+): MarketCategory {
+
+    val normalized =
+        market
+            .trim()
+            .lowercase(Locale.ROOT)
+
+    return when {
+
+        normalized.contains("correct score") ||
+            normalized.contains("correctscore") ||
+            normalized.contains("pontos eredmény") ->
+            MarketCategory.CORRECT_SCORE
+
+        normalized.contains("total corners") ||
+            normalized.contains("corners over") ||
+            normalized.contains("corner over") ||
+            normalized.contains("corner") &&
+            normalized.contains("over/under") ->
+            MarketCategory.TOTAL_CORNERS
+
+        normalized.contains("corner handicap") ||
+            normalized.contains("corners handicap") ->
+            MarketCategory.CORNERS_HANDICAP
+
+        normalized.contains("first team to score") ->
+            MarketCategory.FIRST_TEAM_TO_SCORE
+
+        normalized.contains("last team to score") ->
+            MarketCategory.LAST_TEAM_TO_SCORE
+
+        normalized.contains("first half result") ->
+            MarketCategory.FIRST_HALF_RESULT
+
+        normalized.contains("second half result") ->
+            MarketCategory.SECOND_HALF_RESULT
+
+        normalized.contains("first half") &&
+            (
+                normalized.contains("goal") ||
+                    normalized.contains("total")
+                ) ->
+            MarketCategory.FIRST_HALF_GOALS
+
+        normalized.contains("second half") &&
+            (
+                normalized.contains("goal") ||
+                    normalized.contains("total")
+                ) ->
+            MarketCategory.SECOND_HALF_GOALS
+
+        normalized.contains("team total") ||
+            normalized.contains("team goals") ->
+            MarketCategory.TEAM_TOTAL
+
+        normalized.contains("both teams to score") ||
+            normalized.contains("btts") ->
+            MarketCategory.BTTS
+
+        normalized.contains("double chance") ->
+            MarketCategory.DOUBLE_CHANCE
+
+        normalized.contains("total goals") ||
+            normalized.contains("goals over/under") ||
+            normalized == "over/under" ||
+            normalized.contains("goal over") ||
+            normalized.contains("goal under") ->
+            MarketCategory.TOTAL_GOALS
+
+        normalized.contains("handicap") ||
+            normalized.contains("asian handicap") ->
+            MarketCategory.HANDICAP
+
+        normalized.contains("full time result") ||
+            normalized.contains("match result") ||
+            normalized == "1x2" ||
+            normalized == "result" ->
+            MarketCategory.RESULT
+
+        else ->
+            MarketCategory.OTHER
+    }
 }
 
-/* ============================================================
- * KIMENETEL MAGYARÍTÁSA
- * ============================================================
- */
-
-private fun selectionDisplayName(
-    selection: String
+private fun marketCategoryTitle(
+    category: MarketCategory
 ): String {
 
-    return when (
+    return when (category) {
+
+        MarketCategory.RESULT ->
+            "Végeredmény (1X2)"
+
+        MarketCategory.DOUBLE_CHANCE ->
+            "Kettős esély"
+
+        MarketCategory.BTTS ->
+            "Mindkét csapat szerez gólt"
+
+        MarketCategory.TOTAL_GOALS ->
+            "Gólok száma"
+
+        MarketCategory.TEAM_TOTAL ->
+            "Csapat góljai"
+
+        MarketCategory.CORRECT_SCORE ->
+            "Pontos eredmény"
+
+        MarketCategory.TOTAL_CORNERS ->
+            "Szögletek száma"
+
+        MarketCategory.CORNERS_HANDICAP ->
+            "Szöglet hendikep"
+
+        MarketCategory.HANDICAP ->
+            "Hendikep"
+
+        MarketCategory.FIRST_HALF_RESULT ->
+            "1. félidő eredménye"
+
+        MarketCategory.SECOND_HALF_RESULT ->
+            "2. félidő eredménye"
+
+        MarketCategory.FIRST_HALF_GOALS ->
+            "1. félidő góljai"
+
+        MarketCategory.SECOND_HALF_GOALS ->
+            "2. félidő góljai"
+
+        MarketCategory.FIRST_TEAM_TO_SCORE ->
+            "Melyik csapat szerez először gólt?"
+
+        MarketCategory.LAST_TEAM_TO_SCORE ->
+            "Melyik csapat szerez utoljára gólt?"
+
+        MarketCategory.OTHER ->
+            "Egyéb piacok"
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* SELECTION TRANSLATION                                                      */
+/* -------------------------------------------------------------------------- */
+
+private fun selectionLabel(
+    selection: String,
+    match: MatchModel
+): String {
+
+    val normalized =
         selection
             .trim()
             .lowercase(Locale.ROOT)
-    ) {
 
-        "home" ->
-            "Hazai"
+    return when {
 
-        "away" ->
-            "Vendég"
+        normalized == "home" ||
+            normalized == "1" ->
+            match.homeTeam?.name ?: "Hazai"
 
-        "draw" ->
+        normalized == "away" ||
+            normalized == "2" ->
+            match.awayTeam?.name ?: "Vendég"
+
+        normalized == "draw" ||
+            normalized == "x" ->
             "Döntetlen"
 
-        "1" ->
-            "Hazai"
-
-        "x" ->
-            "Döntetlen"
-
-        "2" ->
-            "Vendég"
-
-        "over" ->
-            "Több"
-
-        "under" ->
-            "Kevesebb"
-
-        "yes" ->
+        normalized == "yes" ->
             "Igen"
 
-        "no" ->
+        normalized == "no" ->
             "Nem"
 
-        "odd" ->
-            "Páratlan"
+        normalized.startsWith("over") -> {
 
-        "even" ->
-            "Páros"
+            val number =
+                selection
+                    .replace(
+                        Regex(
+                            "(?i)over\\s*"
+                        ),
+                        ""
+                    )
+                    .trim()
+
+            "Több mint $number"
+        }
+
+        normalized.startsWith("under") -> {
+
+            val number =
+                selection
+                    .replace(
+                        Regex(
+                            "(?i)under\\s*"
+                        ),
+                        ""
+                    )
+                    .trim()
+
+            "Kevesebb mint $number"
+        }
+
+        normalized.startsWith("o ") -> {
+
+            val number =
+                selection
+                    .drop(2)
+                    .trim()
+
+            "Több mint $number"
+        }
+
+        normalized.startsWith("u ") -> {
+
+            val number =
+                selection
+                    .drop(2)
+                    .trim()
+
+            "Kevesebb mint $number"
+        }
 
         else ->
             selection
     }
 }
 
-/* ============================================================
- * KIMENETEL NORMALIZÁLÁSA
- * ============================================================
- */
+/* -------------------------------------------------------------------------- */
+/* SORTING                                                                    */
+/* -------------------------------------------------------------------------- */
 
-private fun normalizeSelectionKey(
-    selection: String
-): String {
+private fun resultOrder(
+    selection: String,
+    match: MatchModel
+): Int {
 
     return when (
         selection
@@ -1221,266 +1119,83 @@ private fun normalizeSelectionKey(
     ) {
 
         "home",
-        "1" ->
-            "home"
-
-        "away",
-        "2" ->
-            "away"
+        "1" -> 0
 
         "draw",
-        "x" ->
-            "draw"
+        "x" -> 1
 
-        "over" ->
-            "over"
+        "away",
+        "2" -> 2
 
-        "under" ->
-            "under"
-
-        "yes" ->
-            "yes"
-
-        "no" ->
-            "no"
-
-        else ->
-            selection
-                .trim()
-                .lowercase(Locale.ROOT)
+        else -> 3
     }
 }
 
-/* ============================================================
- * PIACNEVEK MAGYARÍTÁSA
- *
- * Több API-elnevezést is kezelünk.
- * Az ismeretlen piacot eredeti néven hagyjuk,
- * hogy SEMMILYEN piac ne vesszen el.
- * ============================================================
- */
+private fun overUnderOrder(
+    selection: String
+): Int {
 
-private fun huMarket(
-    market: String
-): String {
-
-    val key =
-        market
+    val normalized =
+        selection
             .trim()
             .lowercase(Locale.ROOT)
 
     return when {
 
-        key == "full time result" ||
-            key == "match result" ||
-            key == "1x2" ->
-            "Mérkőzés eredménye (1X2)"
-
-        key == "double chance" ->
-            "Kettős esély"
-
-        key == "both teams to score" ||
-            key == "btts" ->
-            "Mindkét csapat szerez gólt"
-
-        key == "total goals" ||
-            key == "goals over/under" ||
-            key == "over/under" ->
-            "Gólok száma"
-
-        key == "draw no bet" ->
-            "Döntetlennél visszajár"
-
-        key == "first half result" ->
-            "1. félidő eredménye"
-
-        key == "second half result" ->
-            "2. félidő eredménye"
-
-        key == "correct score" ->
-            "Pontos eredmény"
-
-        key == "team total" ->
-            "Csapat góljai"
-
-        key == "asian handicap" ||
-            key == "asian handicap -0.5/+0.5" ->
-            "Ázsiai hendikep"
-
-        key == "handicap" ->
-            "Hendikep"
-
-        key == "total corners" ||
-            key == "corners over/under" ->
-            "Szögletek száma"
-
-        key == "corner handicap" ->
-            "Szöglet hendikep"
-
-        key == "total cards" ||
-            key == "cards over/under" ->
-            "Lapok száma"
-
-        key == "card handicap" ->
-            "Lap hendikep"
-
-        key == "total shots" ||
-            key == "shots over/under" ->
-            "Kapura lövések száma"
-
-        key == "shots on target" ||
-            key == "shots on target over/under" ->
-            "Kaput eltaláló lövések"
-
-        key == "total offsides" ||
-            key == "offsides over/under" ->
-            "Lesek száma"
-
-        key == "first goal" ->
-            "Első gólt szerző csapat"
-
-        key == "last goal" ->
-            "Utolsó gólt szerző csapat"
-
-        key == "to score" ->
-            "Gólt szerez"
-
-        key == "win to nil" ->
-            "Győzelem kapott gól nélkül"
-
-        key == "clean sheet" ->
-            "Kapott gól nélkül"
-
-        key == "both teams to score & win" ->
-            "Mindkét csapat gólt szerez és győzelem"
-
-        key == "half time / full time" ->
-            "Félidő / végeredmény"
-
-        key == "half time result" ->
-            "Félidő eredménye"
-
-        key == "match goals" ->
-            "Mérkőzés góljai"
-
-        key == "winning margin" ->
-            "Győzelmi különbség"
-
-        key == "correct score first half" ->
-            "1. félidő pontos eredménye"
-
-        key == "correct score second half" ->
-            "2. félidő pontos eredménye"
-
-        key == "first half total goals" ->
-            "1. félidő góljai"
-
-        key == "second half total goals" ->
-            "2. félidő góljai"
-
-        key == "first half total corners" ->
-            "1. félidő szögletei"
-
-        key == "second half total corners" ->
-            "2. félidő szögletei"
-
-        key == "first half both teams to score" ->
-            "1. félidő – mindkét csapat gólt szerez"
-
-        key == "second half both teams to score" ->
-            "2. félidő – mindkét csapat gólt szerez"
-
-        key == "team total goals" ->
-            "Csapat góljai"
-
-        key == "home team total" ->
-            "Hazai csapat góljai"
-
-        key == "away team total" ->
-            "Vendég csapat góljai"
-
-        key == "home team total goals" ->
-            "Hazai csapat góljai"
-
-        key == "away team total goals" ->
-            "Vendég csapat góljai"
-
-        key == "player to score" ->
-            "Játékos gólt szerez"
-
-        key == "player assists" ->
-            "Játékos gólpassza"
-
-        key == "player shots" ->
-            "Játékos lövései"
-
-        key == "player shots on target" ->
-            "Játékos kaput eltaláló lövései"
-
-        key == "player cards" ->
-            "Játékos lapjai"
-
-        key == "player fouls" ->
-            "Játékos szabálytalanságai"
-
-        key == "player offsides" ->
-            "Játékos leshelyzetei"
-
-        key == "match corners" ->
-            "Mérkőzés szögletei"
-
-        key == "match cards" ->
-            "Mérkőzés lapjai"
-
-        key == "match offsides" ->
-            "Mérkőzés leshelyzetei"
-
-        key == "odd/even" ->
-            "Páros / páratlan gólszám"
-
-        key == "odd even" ->
-            "Páros / páratlan gólszám"
-
-        key == "winning team" ->
-            "Győztes csapat"
-
-        key == "to qualify" ->
-            "Továbbjutás"
-
-        key == "qualified" ->
-            "Továbbjutó"
-
-        key == "relegation" ->
-            "Kiesés"
-
-        key == "promotion" ->
-            "Feljutás"
-
-        key == "next goal" ->
-            "Következő gól"
-
-        key == "race to" ->
-            "Ki éri el előbb?"
-
-        key == "goalscorer" ->
-            "Gólszerző"
-
-        key == "anytime goalscorer" ->
-            "Bármikor gólt szerez"
-
-        key == "first goalscorer" ->
-            "Első gólszerző"
-
-        key == "last goalscorer" ->
-            "Utolsó gólszerző"
-
-        key == "to score 2+" ->
-            "2 vagy több gólt szerez"
-
-        key == "to score 3+" ->
-            "3 vagy több gólt szerez"
+        normalized.startsWith("over") ||
+            normalized.startsWith("o ") ->
+            0
+
+        normalized.startsWith("under") ||
+            normalized.startsWith("u ") ->
+            1
 
         else ->
-            market
+            2
     }
+}
+
+private fun extractNumber(
+    value: String
+): Double {
+
+    val match =
+        Regex(
+            """(\d+(?:[.,]\d+)?)"""
+        ).find(value)
+
+    return match
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.replace(',', '.')
+        ?.toDoubleOrNull()
+        ?: Double.MAX_VALUE
+}
+
+private fun correctScoreOrder(
+    value: String
+): Double {
+
+    val match =
+        Regex(
+            """(\d+)\s*[:\-]\s*(\d+)"""
+        ).find(value)
+
+    if (match == null) {
+        return Double.MAX_VALUE
+    }
+
+    val home =
+        match.groupValues
+            .getOrNull(1)
+            ?.toDoubleOrNull()
+            ?: return Double.MAX_VALUE
+
+    val away =
+        match.groupValues
+            .getOrNull(2)
+            ?.toDoubleOrNull()
+            ?: return Double.MAX_VALUE
+
+    return home * 100.0 + away
 }
