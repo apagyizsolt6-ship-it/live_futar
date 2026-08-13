@@ -24,14 +24,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.livefutar.app.data.ApiKeyManager
+import com.livefutar.app.data.FavoritesManager
 import com.livefutar.app.data.FootballApiService
 import com.livefutar.app.model.HighlightModel
+import com.livefutar.app.model.LeagueModel
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.LiveFutarBottomBar
 import com.livefutar.app.ui.screens.HighlightsScreen
 import com.livefutar.app.ui.screens.HomeScreen
 import com.livefutar.app.ui.screens.MatchDetailScreen
 import com.livefutar.app.ui.screens.SettingsScreen
+import com.livefutar.app.ui.screens.StandingsScreen
 import com.livefutar.app.ui.screens.VideoPlayerScreen
 import com.livefutar.app.ui.theme.LiveFutarTheme
 import com.livefutar.app.util.DateUtils
@@ -50,6 +53,7 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember { mutableStateOf("home") }
                 var selectedMatch by remember { mutableStateOf<MatchModel?>(null) }
                 var selectedHighlight by remember { mutableStateOf<HighlightModel?>(null) }
+                var standingsLeague by remember { mutableStateOf<LeagueModel?>(null) }
 
                 var matches by remember { mutableStateOf<List<MatchModel>>(emptyList()) }
                 var highlights by remember { mutableStateOf<List<HighlightModel>>(emptyList()) }
@@ -64,6 +68,20 @@ class MainActivity : ComponentActivity() {
 
                 val context = androidx.compose.ui.platform.LocalContext.current
                 val apiService = remember { FootballApiService.create() }
+
+                var favoriteTeamIds by remember { mutableStateOf(FavoritesManager.getFavoriteTeamIds(context)) }
+                var favoriteLeagueIds by remember { mutableStateOf(FavoritesManager.getFavoriteLeagueIds(context)) }
+                var showOnlyFavorites by remember { mutableStateOf(false) }
+
+                fun toggleTeamFavorite(teamId: Long) {
+                    FavoritesManager.toggleTeamFavorite(context, teamId)
+                    favoriteTeamIds = FavoritesManager.getFavoriteTeamIds(context)
+                }
+
+                fun toggleLeagueFavorite(leagueId: Long) {
+                    FavoritesManager.toggleLeagueFavorite(context, leagueId)
+                    favoriteLeagueIds = FavoritesManager.getFavoriteLeagueIds(context)
+                }
 
                 suspend fun fetchData(isBackground: Boolean) {
                     if (isBackground) {
@@ -121,7 +139,7 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     bottomBar = {
-                        if (selectedMatch == null && selectedHighlight == null) {
+                        if (selectedMatch == null && selectedHighlight == null && standingsLeague == null) {
                             LiveFutarBottomBar(
                                 currentScreen = currentScreen,
                                 onScreenSelected = { screen ->
@@ -148,10 +166,17 @@ class MainActivity : ComponentActivity() {
                                         onBackClick = { selectedHighlight = null }
                                     )
                                 }
+                                standingsLeague != null -> {
+                                    StandingsScreen(
+                                        league = standingsLeague!!,
+                                        onBackClick = { standingsLeague = null }
+                                    )
+                                }
                                 selectedMatch != null -> {
                                     MatchDetailScreen(
                                         match = selectedMatch!!,
-                                        onBackClick = { selectedMatch = null }
+                                        onBackClick = { selectedMatch = null },
+                                        onStandingsClick = { match -> match.league?.let { standingsLeague = it } }
                                     )
                                 }
                                 // A Beállítások fül mindig elérhető, függetlenül attól,
@@ -185,7 +210,14 @@ class MainActivity : ComponentActivity() {
                                     matches = matches,
                                     selectedDate = selectedDate,
                                     onDateSelected = { newDate -> selectedDate = newDate },
-                                    onMatchClick = { match -> selectedMatch = match }
+                                    favoriteTeamIds = favoriteTeamIds,
+                                    favoriteLeagueIds = favoriteLeagueIds,
+                                    onToggleTeamFavorite = { id -> toggleTeamFavorite(id) },
+                                    onToggleLeagueFavorite = { id -> toggleLeagueFavorite(id) },
+                                    showOnlyFavorites = showOnlyFavorites,
+                                    onToggleShowOnlyFavorites = { showOnlyFavorites = !showOnlyFavorites },
+                                    onMatchClick = { match -> selectedMatch = match },
+                                    onStandingsClick = { match -> match.league?.let { standingsLeague = it } }
                                 )
                                 currentScreen == "highlights" -> HighlightsScreen(
                                     highlights = highlights,
