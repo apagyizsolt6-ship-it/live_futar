@@ -676,7 +676,7 @@ private fun OddsRow(
                                 bookmakerName =
                                     bookmakerName
                             )
-                        }
+                        )
                     }
                     .padding(
                         horizontal = 16.dp,
