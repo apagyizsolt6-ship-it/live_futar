@@ -68,21 +68,30 @@ fun MatchCard(match: MatchModel, onClick: () -> Unit) {
 
             Column(
                 horizontalAlignment = Alignment.End,
-                modifier = Modifier.width(34.dp)
+                modifier = Modifier.width(42.dp)
             ) {
-                Text(
-                    text = match.homeScoreDisplay,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (match.isLive) AccentGreen else MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = match.awayScoreDisplay,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (match.isLive) AccentGreen else MaterialTheme.colorScheme.onSurface
-                )
+                if (match.isNotStarted) {
+                    Text(
+                        text = match.kickoffTime,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Text(
+                        text = match.homeScoreDisplay,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (match.isLive) AccentGreen else MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = match.awayScoreDisplay,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (match.isLive) AccentGreen else MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }
