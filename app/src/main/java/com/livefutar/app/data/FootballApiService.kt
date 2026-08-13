@@ -3,8 +3,11 @@ package com.livefutar.app.data
 import com.livefutar.app.model.ApiResponse
 import com.livefutar.app.model.HighlightModel
 import com.livefutar.app.model.MatchEventModel
+import com.livefutar.app.model.MatchLineups
 import com.livefutar.app.model.MatchModel
+import com.livefutar.app.model.OddsApiResponse
 import com.livefutar.app.model.StandingsResponse
+import com.livefutar.app.model.TeamStatistics
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
@@ -26,14 +29,12 @@ interface FootballApiService {
         @Query("date") date: String
     ): ApiResponse<HighlightModel>
 
-    // Egy adott meccs eseményei (gólok, lapok, cserék), percre lebontva.
     @GET("events/{id}")
     suspend fun getMatchEvents(
         @Header("x-rapidapi-key") apiKey: String,
         @Path("id") matchId: Long
     ): List<MatchEventModel>
 
-    // Bajnoksági tabella - leagueId és season együtt kötelező.
     @GET("standings")
     suspend fun getStandings(
         @Header("x-rapidapi-key") apiKey: String,
@@ -41,12 +42,41 @@ interface FootballApiService {
         @Query("season") season: Int
     ): StandingsResponse
 
-    // Két csapat utolsó (max 10) egymás elleni találkozója.
     @GET("head-2-head")
     suspend fun getHeadToHead(
         @Header("x-rapidapi-key") apiKey: String,
         @Query("teamIdOne") teamIdOne: Long,
         @Query("teamIdTwo") teamIdTwo: Long
+    ): List<MatchModel>
+
+    /** Prematch / live odds – Ultra plan */
+    @GET("odds")
+    suspend fun getOdds(
+        @Header("x-rapidapi-key") apiKey: String,
+        @Query("matchId") matchId: Long,
+        @Query("oddsType") oddsType: String = "prematch",
+        @Query("limit") limit: Int = 20
+    ): OddsApiResponse
+
+    /** Lineups – Ultra plan */
+    @GET("lineups/{matchId}")
+    suspend fun getLineups(
+        @Header("x-rapidapi-key") apiKey: String,
+        @Path("matchId") matchId: Long
+    ): MatchLineups
+
+    /** Match statistics – Ultra plan */
+    @GET("statistics/{matchId}")
+    suspend fun getMatchStatistics(
+        @Header("x-rapidapi-key") apiKey: String,
+        @Path("matchId") matchId: Long
+    ): List<TeamStatistics>
+
+    /** Last 5 games forma */
+    @GET("last-five-games")
+    suspend fun getLastFiveGames(
+        @Header("x-rapidapi-key") apiKey: String,
+        @Query("teamId") teamId: Long
     ): List<MatchModel>
 
     companion object {
