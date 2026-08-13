@@ -575,18 +575,47 @@ private fun OddsTab(
     match: MatchModel,
     onAddToSlip: (BetSlipSelection) -> Unit
 ) {
+    // Az oddsokat eloszor megtisztitjuk, hogy a Compositionbe csak valos, ervenyes
+    // elemek keruljenek. A stabil key-k megakadalyozzak, hogy recomposition kozben
+    // a Compose rossz groupot probaljon kivenni a belso stack-bol.
+    val validOdds = remember(odds) {
+        odds.mapNotNull { bookmaker ->
+            val market = bookmaker.market?.takeIf { it.isNotBlank() } ?: "Egyeb"
+            val bookmakerName = bookmaker.bookmakerName?.takeIf { it.isNotBlank() } ?: "Bookmaker"
+
+            val entries = bookmaker.values.orEmpty().mapNotNull { value ->
+                val odd = value.odd ?: return@mapNotNull null
+                val selection = value.value?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                if (!odd.isFinite() || odd <= 0.0) return@mapNotNull null
+                OddEntry(selection = selection, odd = odd)
+            }
+
+            if (entries.isEmpty()) {
+                null
+            } else {
+                OddsGroup(
+                    market = market,
+                    bookmakerName = bookmakerName,
+                    entries = entries
+                )
+            }
+        }
+    }
+
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        if (odds.isEmpty()) {
+        if (validOdds.isEmpty()) {
             Text(
                 "Nincs elerheto odds (Ultra plan vagy tamogatott liga szukseges)",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(24.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
             )
             return@Column
         }
@@ -598,62 +627,88 @@ private fun OddsTab(
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        val byMarket = odds.groupBy { it.market ?: "Egyeb" }
-        byMarket.forEach { (market, list) ->
-            Text(
-                huMarket(market),
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
-            )
-            list.forEach { bo ->
-                val bookie = bo.bookmakerName ?: "Bookmaker"
+        val groupsByMarket = validOdds.groupBy { it.market }
+
+        for ((marketIndex, marketEntry) in groupsByMarket.entries.withIndex()) {
+            val market = marketEntry.key
+            val groups = marketEntry.value
+
+            key("market_${marketIndex}_$market") {
                 Text(
-                    bookie,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 4.dp)
+                    huMarket(market),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
                 )
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    bo.values.orEmpty().forEach { v ->
-                        val oddVal = v.odd ?: return@forEach
-                        val sel = v.value ?: return@forEach
-                        if (!oddVal.isFinite() || oddVal <= 0.0) return@forEach
-                        OddsChip(
-                            label = when (sel.lowercase()) {
-                                "home" -> match.homeTeam?.name?.take(10) ?: "1"
-                                "away" -> match.awayTeam?.name?.take(10) ?: "2"
-                                "draw" -> "X"
-                                else -> sel
-                            },
-                            odd = oddVal,
-                            onClick = {
-                                onAddToSlip(
-                                    BetSlipSelection(
-                                        matchId = match.id,
-                                        homeName = match.homeTeam?.name ?: "Hazai",
-                                        awayName = match.awayTeam?.name ?: "Vendeg",
-                                        leagueName = match.leagueDisplayName,
-                                        market = market,
-                                        selection = sel,
-                                        odd = oddVal,
-                                        bookmakerName = bookie
-                                    )
-                                )
-                            },
-                            modifier = Modifier.weight(1f)
+
+                for ((groupIndex, group) in groups.withIndex()) {
+                    key("bookmaker_${marketIndex}_${groupIndex}_${group.bookmakerName}") {
+                        Text(
+                            group.bookmakerName,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 4.dp)
                         )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            for ((valueIndex, entry) in group.entries.withIndex()) {
+                                val label = when (entry.selection.lowercase()) {
+                                    "home" -> match.homeTeam?.name?.take(10) ?: "1"
+                                    "away" -> match.awayTeam?.name?.take(10) ?: "2"
+                                    "draw" -> "X"
+                                    else -> entry.selection
+                                }
+
+                                key(
+                                    "odds_${marketIndex}_${groupIndex}_${valueIndex}" +
+                                            "_${entry.selection}_${entry.odd}"
+                                ) {
+                                    OddsChip(
+                                        label = label,
+                                        odd = entry.odd,
+                                        onClick = {
+                                            onAddToSlip(
+                                                BetSlipSelection(
+                                                    matchId = match.id,
+                                                    homeName = match.homeTeam?.name ?: "Hazai",
+                                                    awayName = match.awayTeam?.name ?: "Vendeg",
+                                                    leagueName = match.leagueDisplayName,
+                                                    market = market,
+                                                    selection = entry.selection,
+                                                    odd = entry.odd,
+                                                    bookmakerName = group.bookmakerName
+                                                )
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
-                Spacer(Modifier.height(8.dp))
             }
         }
+
         Spacer(Modifier.height(24.dp))
     }
 }
+
+private data class OddsGroup(
+    val market: String,
+    val bookmakerName: String,
+    val entries: List<OddEntry>
+)
+
+private data class OddEntry(
+    val selection: String,
+    val odd: Double
+)
 
 private fun huMarket(market: String): String = when (market.lowercase()) {
     "full time result", "match result", "1x2" -> "Vegeredmeny (1X2)"
