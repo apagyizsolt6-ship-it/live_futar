@@ -34,13 +34,6 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-private enum class MatchTimeFilter {
-    ALL,
-    WITHIN_3_HOURS,
-    WITHIN_6_HOURS,
-    WITHIN_9_HOURS
-}
-
 private data class LeagueGroup(
     val key: String,
     val displayName: String,
@@ -66,94 +59,112 @@ fun HomeScreen(
     onMatchClick: (MatchModel) -> Unit,
     onStandingsClick: (MatchModel) -> Unit
 ) {
-    var filtersExpanded by rememberSaveable { mutableStateOf(false) }
-    var timeFilter by rememberSaveable {
-        mutableStateOf(MatchTimeFilter.ALL)
+    var filtersExpanded by rememberSaveable {
+        mutableStateOf(false)
     }
 
     val collapsedLeagues = remember {
         mutableStateMapOf<String, Boolean>()
     }
 
+    /*
+     * Aktuális idő a közelgő mérkőzések kis jelzéséhez.
+     */
     val now = remember {
-        mutableStateOf(System.currentTimeMillis())
+        mutableStateOf(
+            System.currentTimeMillis()
+        )
     }
 
+    /*
+     * Minden új adatbetöltéskor frissítjük
+     * az időpont-számításhoz használt időt.
+     */
     LaunchedEffect(matches, selectedDate) {
-        now.value = System.currentTimeMillis()
+        now.value =
+            System.currentTimeMillis()
     }
 
+    /*
+     * NINCS 3 / 6 / 9 ÓRÁS SZŰRÉS.
+     *
+     * Alapból minden mérkőzés megjelenik.
+     *
+     * Csak:
+     * - kedvencek
+     * - élő
+     *
+     * szűrés maradt.
+     */
     val filteredMatches = remember(
         matches,
         favoriteTeamIds,
         favoriteLeagueIds,
         showOnlyFavorites,
-        showOnlyLive,
-        timeFilter,
-        now.value
+        showOnlyLive
     ) {
+
         var result = matches
 
         /*
          * KEDVENCEK SZŰRÉSE
          */
         if (showOnlyFavorites) {
-            result = result.filter { match ->
-                (match.league?.id != null &&
-                    favoriteLeagueIds.contains(match.league.id)) ||
 
-                    (match.homeTeam?.id != null &&
-                        favoriteTeamIds.contains(match.homeTeam.id)) ||
+            result =
+                result.filter { match ->
 
-                    (match.awayTeam?.id != null &&
-                        favoriteTeamIds.contains(match.awayTeam.id))
-            }
+                    (
+                        match.league?.id != null &&
+                            favoriteLeagueIds.contains(
+                                match.league.id
+                            )
+                        ) ||
+
+                        (
+                            match.homeTeam?.id != null &&
+                                favoriteTeamIds.contains(
+                                    match.homeTeam.id
+                                )
+                            ) ||
+
+                        (
+                            match.awayTeam?.id != null &&
+                                favoriteTeamIds.contains(
+                                    match.awayTeam.id
+                                )
+                            )
+                }
         }
 
         /*
          * ÉLŐ SZŰRÉS
          */
         if (showOnlyLive) {
-            result = result.filter { it.isLive }
-        }
 
-        /*
-         * 3 / 6 / 9 ÓRÁS SZŰRÉS
-         */
-        val windowHours = when (timeFilter) {
-            MatchTimeFilter.ALL -> null
-            MatchTimeFilter.WITHIN_3_HOURS -> 3L
-            MatchTimeFilter.WITHIN_6_HOURS -> 6L
-            MatchTimeFilter.WITHIN_9_HOURS -> 9L
-        }
-
-        if (windowHours != null) {
-            val start = now.value
-            val end =
-                start + windowHours * 60L * 60L * 1000L
-
-            result = result.filter { match ->
-
-                if (!match.isNotStarted) {
-                    return@filter false
+            result =
+                result.filter {
+                    it.isLive
                 }
-
-                val kickoff =
-                    parseMatchDate(match.date)?.time
-                        ?: return@filter false
-
-                kickoff in start..end
-            }
         }
 
         /*
-         * LEGKORÁBBI MECCSTŐL FELFELÉ
+         * LEGKORÁBBI MECCSTŐL FELFELÉ.
+         *
+         * FONTOS:
+         * itt már nincs 3 / 6 / 9 órás limit.
          */
         result.sortedWith(
+
             compareBy<MatchModel> {
-                parseMatchDate(it.date)?.time
+
+                parseMatchDate(
+                    it.date
+                )?.time
                     ?: Long.MAX_VALUE
+
             }.thenBy {
+
                 it.id
             }
         )
@@ -162,44 +173,67 @@ fun HomeScreen(
     /*
      * ÉLŐ MECCSEK SZÁMA
      */
-    val liveCount = matches.count {
-        it.isLive
-    }
+    val liveCount =
+        matches.count {
+            it.isLive
+        }
 
     /*
      * BAJNOKSÁGOK CSOPORTOSÍTÁSA
      */
-    val grouped = filteredMatches
-        .groupBy { match ->
-            leagueKey(match)
-        }
-        .map { (key, list) ->
-
-            LeagueGroup(
-                key = key,
-                displayName =
-                    list.firstOrNull()?.leagueDisplayName
-                        ?: "Egyéb mérkőzések",
-
-                matches = list.sortedWith(
-                    compareBy<MatchModel> {
-                        parseMatchDate(it.date)?.time
-                            ?: Long.MAX_VALUE
-                    }.thenBy {
-                        it.id
-                    }
-                )
-            )
-        }
-        .sortedWith(
-            compareBy<LeagueGroup> {
-                it.matches.firstOrNull()?.let { match ->
-                    parseMatchDate(match.date)?.time
-                } ?: Long.MAX_VALUE
-            }.thenBy {
-                it.displayName
+    val grouped =
+        filteredMatches
+            .groupBy { match ->
+                leagueKey(match)
             }
-        )
+            .map { (key, list) ->
+
+                LeagueGroup(
+
+                    key = key,
+
+                    displayName =
+                        list.firstOrNull()
+                            ?.leagueDisplayName
+                            ?: "Egyéb mérkőzések",
+
+                    matches =
+                        list.sortedWith(
+
+                            compareBy<MatchModel> {
+
+                                parseMatchDate(
+                                    it.date
+                                )?.time
+                                    ?: Long.MAX_VALUE
+
+                            }.thenBy {
+
+                                it.id
+                            }
+                        )
+                )
+            }
+            .sortedWith(
+
+                compareBy<LeagueGroup> {
+
+                    it.matches
+                        .firstOrNull()
+                        ?.let { match ->
+
+                            parseMatchDate(
+                                match.date
+                            )?.time
+
+                        }
+                        ?: Long.MAX_VALUE
+
+                }.thenBy {
+
+                    it.displayName
+                }
+            )
 
     Scaffold(
 
@@ -216,12 +250,14 @@ fun HomeScreen(
 
                         Text(
                             text = "LIVE FUTÁR",
-                            fontWeight = FontWeight.Bold,
+                            fontWeight =
+                                FontWeight.Bold,
                             fontSize = 18.sp
                         )
 
                         Spacer(
-                            modifier = Modifier.width(6.dp)
+                            modifier =
+                                Modifier.width(6.dp)
                         )
 
                         Text(
@@ -229,10 +265,14 @@ fun HomeScreen(
                             fontSize = 16.sp
                         )
 
+                        /*
+                         * Élő meccsek száma.
+                         */
                         if (liveCount > 0) {
 
                             Spacer(
-                                modifier = Modifier.width(8.dp)
+                                modifier =
+                                    Modifier.width(8.dp)
                             )
 
                             LiveBadge(
@@ -248,6 +288,7 @@ fun HomeScreen(
                      * FRISSÍTÉS
                      */
                     Text(
+
                         text =
                             if (isRefreshing) {
                                 "…"
@@ -258,15 +299,19 @@ fun HomeScreen(
                         fontSize = 20.sp,
 
                         color =
-                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme
+                                .colorScheme
+                                .primary,
 
-                        modifier = Modifier
-                            .padding(end = 6.dp)
-                            .clickable(
-                                enabled = !isRefreshing
-                            ) {
-                                onRefresh()
-                            }
+                        modifier =
+                            Modifier
+                                .padding(end = 6.dp)
+                                .clickable(
+                                    enabled =
+                                        !isRefreshing
+                                ) {
+                                    onRefresh()
+                                }
                     )
 
                     /*
@@ -274,7 +319,8 @@ fun HomeScreen(
                      */
                     FilterChip(
 
-                        selected = showOnlyLive,
+                        selected =
+                            showOnlyLive,
 
                         onClick =
                             onToggleShowOnlyLive,
@@ -282,6 +328,7 @@ fun HomeScreen(
                         label = {
 
                             Text(
+
                                 text =
                                     if (showOnlyLive) {
                                         "ÉLŐ"
@@ -290,35 +337,38 @@ fun HomeScreen(
                                     },
 
                                 fontSize = 12.sp,
+
                                 fontWeight =
                                     FontWeight.Bold
                             )
                         },
 
                         colors =
-                            FilterChipDefaults.filterChipColors(
+                            FilterChipDefaults
+                                .filterChipColors(
 
-                                selectedContainerColor =
-                                    AccentGreen.copy(
-                                        alpha = 0.25f
-                                    ),
+                                    selectedContainerColor =
+                                        AccentGreen.copy(
+                                            alpha = 0.25f
+                                        ),
 
-                                selectedLabelColor =
-                                    AccentGreen,
+                                    selectedLabelColor =
+                                        AccentGreen,
 
-                                containerColor =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .surfaceVariant,
+                                    containerColor =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .surfaceVariant,
 
-                                labelColor =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            ),
+                                    labelColor =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                ),
 
                         modifier =
-                            Modifier.padding(end = 4.dp)
+                            Modifier
+                                .padding(end = 4.dp)
                     )
 
                     /*
@@ -344,27 +394,29 @@ fun HomeScreen(
                                     .onSurfaceVariant
                             },
 
-                        modifier = Modifier
-                            .padding(end = 14.dp)
-                            .clickable {
-                                onToggleShowOnlyFavorites()
-                            }
+                        modifier =
+                            Modifier
+                                .padding(end = 14.dp)
+                                .clickable {
+                                    onToggleShowOnlyFavorites()
+                                }
                     )
                 },
 
                 colors =
-                    TopAppBarDefaults.topAppBarColors(
+                    TopAppBarDefaults
+                        .topAppBarColors(
 
-                        containerColor =
-                            MaterialTheme
-                                .colorScheme
-                                .surface,
+                            containerColor =
+                                MaterialTheme
+                                    .colorScheme
+                                    .surface,
 
-                        titleContentColor =
-                            MaterialTheme
-                                .colorScheme
-                                .onSurface
-                    )
+                            titleContentColor =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurface
+                        )
             )
         }
 
@@ -372,14 +424,15 @@ fun HomeScreen(
 
         LazyColumn(
 
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(
-                    MaterialTheme
-                        .colorScheme
-                        .background
-                ),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .background(
+                        MaterialTheme
+                            .colorScheme
+                            .background
+                    ),
 
             verticalArrangement =
                 Arrangement.spacedBy(1.dp)
@@ -391,8 +444,12 @@ fun HomeScreen(
             item {
 
                 DateStrip(
-                    selectedDate = selectedDate,
-                    onDateSelected = onDateSelected
+
+                    selectedDate =
+                        selectedDate,
+
+                    onDateSelected =
+                        onDateSelected
                 )
             }
 
@@ -438,12 +495,12 @@ fun HomeScreen(
 
                     activeCount =
                         activeFilterCount(
-                            timeFilter,
                             showOnlyLive,
                             showOnlyFavorites
                         ),
 
                     onClick = {
+
                         filtersExpanded =
                             !filtersExpanded
                     }
@@ -452,19 +509,15 @@ fun HomeScreen(
 
             /*
              * LENYITHATÓ SZŰRŐPANEL
+             *
+             * Itt már nincs 3 / 6 / 9 órás
+             * szűrősor.
              */
             if (filtersExpanded) {
 
                 item {
 
                     FilterPanel(
-
-                        timeFilter =
-                            timeFilter,
-
-                        onTimeFilterSelected = {
-                            timeFilter = it
-                        },
 
                         showOnlyLive =
                             showOnlyLive,
@@ -479,9 +532,6 @@ fun HomeScreen(
                             onToggleShowOnlyFavorites,
 
                         onClear = {
-
-                            timeFilter =
-                                MatchTimeFilter.ALL
 
                             if (showOnlyLive) {
                                 onToggleShowOnlyLive()
@@ -508,10 +558,7 @@ fun HomeScreen(
                             showOnlyFavorites,
 
                         showOnlyLive =
-                            showOnlyLive,
-
-                        timeFilter =
-                            timeFilter
+                            showOnlyLive
                     )
                 }
 
@@ -523,7 +570,8 @@ fun HomeScreen(
                 grouped.forEach { group ->
 
                     val first =
-                        group.matches.firstOrNull()
+                        group.matches
+                            .firstOrNull()
 
                     val leagueId =
                         first?.league?.id
@@ -535,7 +583,9 @@ fun HomeScreen(
                             )
 
                     val isCollapsed =
-                        collapsedLeagues[group.key] == true
+                        collapsedLeagues[
+                            group.key
+                        ] == true
 
                     /*
                      * BAJNOKSÁG FEJLÉC
@@ -569,7 +619,8 @@ fun HomeScreen(
 
                                 collapsedLeagues[
                                     group.key
-                                ] = !isCollapsed
+                                ] =
+                                    !isCollapsed
                             },
 
                             onToggleFavorite = {
@@ -595,48 +646,122 @@ fun HomeScreen(
 
                         items(
 
-                            items = group.matches,
+                            items =
+                                group.matches,
 
                             key = { match ->
+
                                 "match_${match.id}"
                             }
 
                         ) { match ->
 
-                            MatchCard(
+                            /*
+                             * Közelgő időjelzés.
+                             *
+                             * Ez NEM szűri ki a meccset.
+                             */
+                            val timeBadge =
+                                upcomingTimeBadge(
+                                    match =
+                                        match,
 
-                                match = match,
+                                    nowMillis =
+                                        now.value
+                                )
 
-                                isHomeFavorite =
-                                    match.homeTeam?.id != null &&
-                                        favoriteTeamIds.contains(
-                                            match.homeTeam.id
-                                        ),
+                            Column(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                            ) {
 
-                                isAwayFavorite =
-                                    match.awayTeam?.id != null &&
-                                        favoriteTeamIds.contains(
-                                            match.awayTeam.id
-                                        ),
+                                /*
+                                 * Kis időjelző.
+                                 *
+                                 * Csak nem élő, még el nem
+                                 * kezdődött meccseknél.
+                                 */
+                                if (
+                                    timeBadge != null
+                                ) {
 
-                                onToggleHomeFavorite = {
+                                    Row(
 
-                                    match.homeTeam?.id?.let(
-                                        onToggleTeamFavorite
-                                    )
-                                },
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(
+                                                    horizontal =
+                                                        18.dp,
 
-                                onToggleAwayFavorite = {
+                                                    vertical =
+                                                        2.dp
+                                                ),
 
-                                    match.awayTeam?.id?.let(
-                                        onToggleTeamFavorite
-                                    )
-                                },
+                                        horizontalArrangement =
+                                            Arrangement.End
+                                    ) {
 
-                                onClick = {
-                                    onMatchClick(match)
+                                        UpcomingTimeBadge(
+                                            label =
+                                                timeBadge
+                                        )
+                                    }
                                 }
-                            )
+
+                                /*
+                                 * A MECCSKÁRTYA
+                                 */
+                                MatchCard(
+
+                                    match =
+                                        match,
+
+                                    isHomeFavorite =
+                                        match.homeTeam
+                                            ?.id != null &&
+                                            favoriteTeamIds
+                                                .contains(
+                                                    match.homeTeam
+                                                        .id
+                                                ),
+
+                                    isAwayFavorite =
+                                        match.awayTeam
+                                            ?.id != null &&
+                                            favoriteTeamIds
+                                                .contains(
+                                                    match.awayTeam
+                                                        .id
+                                                ),
+
+                                    onToggleHomeFavorite = {
+
+                                        match.homeTeam
+                                            ?.id
+                                            ?.let(
+                                                onToggleTeamFavorite
+                                            )
+                                    },
+
+                                    onToggleAwayFavorite = {
+
+                                        match.awayTeam
+                                            ?.id
+                                            ?.let(
+                                                onToggleTeamFavorite
+                                            )
+                                    },
+
+                                    onClick = {
+
+                                        onMatchClick(
+                                            match
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -655,18 +780,17 @@ fun HomeScreen(
 
 /*
  * AKTÍV SZŰRŐK SZÁMA
+ *
+ * Már csak:
+ * - Élő
+ * - Kedvencek
  */
 private fun activeFilterCount(
-    timeFilter: MatchTimeFilter,
     showOnlyLive: Boolean,
     showOnlyFavorites: Boolean
 ): Int {
 
     var count = 0
-
-    if (timeFilter != MatchTimeFilter.ALL) {
-        count++
-    }
 
     if (showOnlyLive) {
         count++
@@ -680,13 +804,157 @@ private fun activeFilterCount(
 }
 
 /*
+ * KÖZELGŐ MECCS IDŐJELZŐ
+ *
+ * Nem szűri ki a mérkőzést.
+ *
+ * 0 - 3 óra:
+ *     3h
+ *
+ * 3 - 6 óra:
+ *     6h
+ *
+ * 6 - 9 óra:
+ *     9h
+ *
+ * 9 órán túl:
+ *     nincs jelzés
+ *
+ * Élő mérkőzés:
+ *     nincs jelzés
+ */
+private fun upcomingTimeBadge(
+    match: MatchModel,
+    nowMillis: Long
+): String? {
+
+    /*
+     * Élő vagy már elkezdődött mérkőzéshez
+     * nem kell közelgő időjelzés.
+     */
+    if (!match.isNotStarted) {
+        return null
+    }
+
+    val kickoff =
+        parseMatchDate(
+            match.date
+        )?.time
+            ?: return null
+
+    val difference =
+        kickoff - nowMillis
+
+    /*
+     * Már elmúlt kezdési idő.
+     */
+    if (difference < 0L) {
+        return null
+    }
+
+    val threeHours =
+        3L *
+            60L *
+            60L *
+            1000L
+
+    val sixHours =
+        6L *
+            60L *
+            60L *
+            1000L
+
+    val nineHours =
+        9L *
+            60L *
+            60L *
+            1000L
+
+    return when {
+
+        difference <= threeHours ->
+            "3h"
+
+        difference <= sixHours ->
+            "6h"
+
+        difference <= nineHours ->
+            "9h"
+
+        else ->
+            null
+    }
+}
+
+/*
+ * KIS IDŐJELZŐ
+ */
+@Composable
+private fun UpcomingTimeBadge(
+    label: String
+) {
+
+    Box(
+
+        modifier =
+            Modifier
+                .clip(
+                    RoundedCornerShape(8.dp)
+                )
+                .background(
+                    MaterialTheme
+                        .colorScheme
+                        .surfaceVariant
+                        .copy(
+                            alpha = 0.65f
+                        )
+                )
+                .border(
+                    1.dp,
+
+                    MaterialTheme
+                        .colorScheme
+                        .outline
+                        .copy(
+                            alpha = 0.35f
+                        ),
+
+                    RoundedCornerShape(8.dp)
+                )
+                .padding(
+                    horizontal = 7.dp,
+                    vertical = 3.dp
+                )
+    ) {
+
+        Text(
+
+            text =
+                "⏱ $label",
+
+            fontSize = 10.sp,
+
+            fontWeight =
+                FontWeight.Bold,
+
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant
+        )
+    }
+}
+
+/*
  * BAJNOKSÁG AZONOSÍTÓ
  */
 private fun leagueKey(
     match: MatchModel
 ): String {
 
-    return match.league?.id?.toString()
+    return match.league
+        ?.id
+        ?.toString()
         ?: "${match.country?.code.orEmpty()}_${match.leagueDisplayName}"
 }
 
@@ -701,18 +969,19 @@ private fun parseMatchDate(
         return null
     }
 
-    val patterns = listOf(
+    val patterns =
+        listOf(
 
-        "yyyy-MM-dd'T'HH:mm:ssXXX",
+            "yyyy-MM-dd'T'HH:mm:ssXXX",
 
-        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
 
-        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
 
-        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
 
-        "yyyy-MM-dd'T'HH:mm:ss"
-    )
+            "yyyy-MM-dd'T'HH:mm:ss"
+        )
 
     for (pattern in patterns) {
 
@@ -724,17 +993,27 @@ private fun parseMatchDate(
                     Locale.US
                 )
 
-            if (pattern.contains("'Z'")) {
+            if (
+                pattern.contains("'Z'")
+            ) {
 
                 formatter.timeZone =
-                    TimeZone.getTimeZone("UTC")
+                    TimeZone.getTimeZone(
+                        "UTC"
+                    )
             }
 
-            return formatter.parse(value)
+            return formatter.parse(
+                value
+            )
 
-        } catch (_: ParseException) {
+        } catch (
+            _: ParseException
+        ) {
 
-            // Következő formátum.
+            /*
+             * Következő formátum.
+             */
         }
     }
 
@@ -753,35 +1032,40 @@ private fun FilterHeader(
 
     Row(
 
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = 12.dp,
-                vertical = 6.dp
-            )
-            .clip(
-                RoundedCornerShape(14.dp)
-            )
-            .background(
-                MaterialTheme
-                    .colorScheme
-                    .surface
-            )
-            .border(
-                1.dp,
-                MaterialTheme
-                    .colorScheme
-                    .outline
-                    .copy(alpha = 0.35f),
-                RoundedCornerShape(14.dp)
-            )
-            .clickable {
-                onClick()
-            }
-            .padding(
-                horizontal = 14.dp,
-                vertical = 11.dp
-            ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 12.dp,
+                    vertical = 6.dp
+                )
+                .clip(
+                    RoundedCornerShape(14.dp)
+                )
+                .background(
+                    MaterialTheme
+                        .colorScheme
+                        .surface
+                )
+                .border(
+                    1.dp,
+
+                    MaterialTheme
+                        .colorScheme
+                        .outline
+                        .copy(
+                            alpha = 0.35f
+                        ),
+
+                    RoundedCornerShape(14.dp)
+                )
+                .clickable {
+                    onClick()
+                }
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = 11.dp
+                ),
 
         verticalAlignment =
             Alignment.CenterVertically
@@ -789,7 +1073,8 @@ private fun FilterHeader(
 
         Text(
 
-            text = "⚙ Szűrők",
+            text =
+                "⚙ Szűrők",
 
             fontSize = 14.sp,
 
@@ -811,19 +1096,20 @@ private fun FilterHeader(
 
             Box(
 
-                modifier = Modifier
-                    .clip(
-                        RoundedCornerShape(8.dp)
-                    )
-                    .background(
-                        AccentGreen.copy(
-                            alpha = 0.16f
+                modifier =
+                    Modifier
+                        .clip(
+                            RoundedCornerShape(8.dp)
                         )
-                    )
-                    .padding(
-                        horizontal = 7.dp,
-                        vertical = 3.dp
-                    )
+                        .background(
+                            AccentGreen.copy(
+                                alpha = 0.16f
+                            )
+                        )
+                        .padding(
+                            horizontal = 7.dp,
+                            vertical = 3.dp
+                        )
             ) {
 
                 Text(
@@ -868,165 +1154,51 @@ private fun FilterHeader(
 
 /*
  * SZŰRŐPANEL
+ *
+ * A 3 / 6 / 9 órás szűrők SZÁNDÉKOSAN
+ * kikerültek.
+ *
+ * A panel csak:
+ * - Élő
+ * - Kedvencek
+ * - Szűrők törlése
  */
-/*
- * SZŰRŐPANEL
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterPanel(
-    timeFilter: MatchTimeFilter,
-    onTimeFilterSelected: (MatchTimeFilter) -> Unit,
     showOnlyLive: Boolean,
     onToggleLive: () -> Unit,
     showOnlyFavorites: Boolean,
     onToggleFavorites: () -> Unit,
     onClear: () -> Unit
 ) {
+
     Column(
 
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = 12.dp,
-                vertical = 2.dp
-            )
-            .clip(
-                RoundedCornerShape(16.dp)
-            )
-            .background(
-                MaterialTheme
-                    .colorScheme
-                    .surfaceVariant
-                    .copy(alpha = 0.55f)
-            )
-            .padding(12.dp)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 12.dp,
+                    vertical = 2.dp
+                )
+                .clip(
+                    RoundedCornerShape(16.dp)
+                )
+                .background(
+                    MaterialTheme
+                        .colorScheme
+                        .surfaceVariant
+                        .copy(
+                            alpha = 0.55f
+                        )
+                )
+                .padding(12.dp)
     ) {
 
         Text(
 
-            text = "Idő szerinti szűrés",
-
-            fontSize = 12.sp,
-
-            fontWeight =
-                FontWeight.Bold,
-
-            color =
-                MaterialTheme
-                    .colorScheme
-                    .onSurfaceVariant,
-
-            modifier =
-                Modifier.padding(
-                    bottom = 6.dp
-                )
-        )
-
-        LazyRow(
-
-            horizontalArrangement =
-                Arrangement.spacedBy(7.dp),
-
-            contentPadding =
-                PaddingValues(
-                    bottom = 4.dp
-                )
-        ) {
-
-            item {
-
-                FilterChip(
-
-                    selected =
-                        timeFilter ==
-                            MatchTimeFilter.ALL,
-
-                    onClick = {
-
-                        onTimeFilterSelected(
-                            MatchTimeFilter.ALL
-                        )
-                    },
-
-                    label = {
-                        Text("Összes")
-                    }
-                )
-            }
-
-            item {
-
-                FilterChip(
-
-                    selected =
-                        timeFilter ==
-                            MatchTimeFilter.WITHIN_3_HOURS,
-
-                    onClick = {
-
-                        onTimeFilterSelected(
-                            MatchTimeFilter.WITHIN_3_HOURS
-                        )
-                    },
-
-                    label = {
-                        Text("3 órán belül")
-                    }
-                )
-            }
-
-            item {
-
-                FilterChip(
-
-                    selected =
-                        timeFilter ==
-                            MatchTimeFilter.WITHIN_6_HOURS,
-
-                    onClick = {
-
-                        onTimeFilterSelected(
-                            MatchTimeFilter.WITHIN_6_HOURS
-                        )
-                    },
-
-                    label = {
-                        Text("6 órán belül")
-                    }
-                )
-            }
-
-            item {
-
-                FilterChip(
-
-                    selected =
-                        timeFilter ==
-                            MatchTimeFilter.WITHIN_9_HOURS,
-
-                    onClick = {
-
-                        onTimeFilterSelected(
-                            MatchTimeFilter.WITHIN_9_HOURS
-                        )
-                    },
-
-                    label = {
-                        Text("9 órán belül")
-                    }
-                )
-            }
-        }
-
-        Spacer(
-            modifier =
-                Modifier.height(6.dp)
-        )
-
-        Text(
-
-            text = "További szűrők",
+            text =
+                "További szűrők",
 
             fontSize = 12.sp,
 
@@ -1050,6 +1222,9 @@ private fun FilterPanel(
                 Arrangement.spacedBy(7.dp)
         ) {
 
+            /*
+             * ÉLŐ
+             */
             item {
 
                 FilterChip(
@@ -1061,7 +1236,11 @@ private fun FilterPanel(
                         onToggleLive,
 
                     label = {
-                        Text("🔴 Élő")
+
+                        Text(
+                            text =
+                                "🔴 Élő"
+                        )
                     },
 
                     colors =
@@ -1079,6 +1258,9 @@ private fun FilterPanel(
                 )
             }
 
+            /*
+             * KEDVENCEK
+             */
             item {
 
                 FilterChip(
@@ -1090,7 +1272,11 @@ private fun FilterPanel(
                         onToggleFavorites,
 
                     label = {
-                        Text("★ Kedvencek")
+
+                        Text(
+                            text =
+                                "★ Kedvencek"
+                        )
                     },
 
                     colors =
@@ -1108,6 +1294,9 @@ private fun FilterPanel(
                 )
             }
 
+            /*
+             * SZŰRŐK TÖRLÉSE
+             */
             item {
 
                 AssistChip(
@@ -1116,7 +1305,11 @@ private fun FilterPanel(
                         onClear,
 
                     label = {
-                        Text("Szűrők törlése")
+
+                        Text(
+                            text =
+                                "Szűrők törlése"
+                        )
                     }
                 )
             }
@@ -1134,31 +1327,35 @@ private fun LiveBadge(
 
     Box(
 
-        modifier = Modifier
-            .clip(
-                RoundedCornerShape(10.dp)
-            )
-            .background(
-                AccentGreen.copy(
-                    alpha = 0.18f
+        modifier =
+            Modifier
+                .clip(
+                    RoundedCornerShape(10.dp)
                 )
-            )
-            .border(
-                1.dp,
-                AccentGreen.copy(
-                    alpha = 0.5f
-                ),
-                RoundedCornerShape(10.dp)
-            )
-            .padding(
-                horizontal = 8.dp,
-                vertical = 3.dp
-            )
+                .background(
+                    AccentGreen.copy(
+                        alpha = 0.18f
+                    )
+                )
+                .border(
+                    1.dp,
+
+                    AccentGreen.copy(
+                        alpha = 0.5f
+                    ),
+
+                    RoundedCornerShape(10.dp)
+                )
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 3.dp
+                )
     ) {
 
         Text(
 
-            text = "ÉLŐ $count",
+            text =
+                "ÉLŐ $count",
 
             fontSize = 11.sp,
 
@@ -1180,30 +1377,28 @@ private fun LiveBadge(
 @Composable
 private fun EmptyState(
     showOnlyFavorites: Boolean,
-    showOnlyLive: Boolean,
-    timeFilter: MatchTimeFilter
+    showOnlyLive: Boolean
 ) {
 
-    val message = when {
+    val message =
+        when {
 
-        showOnlyLive ->
-            "Jelenleg nincs élő mérkőzés"
+            showOnlyLive ->
+                "Jelenleg nincs élő mérkőzés"
 
-        showOnlyFavorites ->
-            "Nincs kedvenc mérkőzés ezen a napon"
+            showOnlyFavorites ->
+                "Nincs kedvenc mérkőzés ezen a napon"
 
-        timeFilter != MatchTimeFilter.ALL ->
-            "Nincs mérkőzés ebben az időablakban"
-
-        else ->
-            "Nincsenek mérkőzések ezen a napon"
-    }
+            else ->
+                "Nincsenek mérkőzések ezen a napon"
+        }
 
     Box(
 
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(40.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(40.dp),
 
         contentAlignment =
             Alignment.Center
@@ -1217,21 +1412,18 @@ private fun EmptyState(
 
             Text(
 
-                text = when {
+                text =
+                    when {
 
-                    showOnlyLive ->
-                        "⚽"
+                        showOnlyLive ->
+                            "⚽"
 
-                    showOnlyFavorites ->
-                        "★"
+                        showOnlyFavorites ->
+                            "★"
 
-                    timeFilter !=
-                        MatchTimeFilter.ALL ->
-                        "⏱"
-
-                    else ->
-                        "📅"
-                },
+                        else ->
+                            "📅"
+                    },
 
                 fontSize = 36.sp
             )
@@ -1243,7 +1435,8 @@ private fun EmptyState(
 
             Text(
 
-                text = message,
+                text =
+                    message,
 
                 color =
                     MaterialTheme
@@ -1275,9 +1468,12 @@ private fun DateStrip(
 
     LazyRow(
 
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    vertical = 10.dp
+                ),
 
         horizontalArrangement =
             Arrangement.spacedBy(8.dp),
@@ -1295,83 +1491,86 @@ private fun DateStrip(
 
             Box(
 
-                modifier = Modifier
-                    .clip(
-                        RoundedCornerShape(14.dp)
-                    )
-                    .background(
-
-                        if (isSelected) {
-
-                            Brush.horizontalGradient(
-
-                                listOf(
-
-                                    MaterialTheme
-                                        .colorScheme
-                                        .primary,
-
-                                    MaterialTheme
-                                        .colorScheme
-                                        .primary
-                                        .copy(
-                                            alpha = 0.85f
-                                        )
-                                )
-                            )
-
-                        } else {
-
-                            Brush.horizontalGradient(
-
-                                listOf(
-
-                                    MaterialTheme
-                                        .colorScheme
-                                        .surface,
-
-                                    MaterialTheme
-                                        .colorScheme
-                                        .surface
-                                )
-                            )
-                        }
-                    )
-                    .then(
-
-                        if (!isSelected) {
-
-                            Modifier.border(
-
-                                1.dp,
-
-                                MaterialTheme
-                                    .colorScheme
-                                    .outline
-                                    .copy(
-                                        alpha = 0.5f
-                                    ),
-
-                                RoundedCornerShape(
-                                    14.dp
-                                )
-                            )
-
-                        } else {
-
-                            Modifier
-                        }
-                    )
-                    .clickable {
-
-                        onDateSelected(
-                            dateStr
+                modifier =
+                    Modifier
+                        .clip(
+                            RoundedCornerShape(14.dp)
                         )
-                    }
-                    .padding(
-                        horizontal = 16.dp,
-                        vertical = 9.dp
-                    )
+                        .background(
+
+                            if (isSelected) {
+
+                                Brush.horizontalGradient(
+
+                                    listOf(
+
+                                        MaterialTheme
+                                            .colorScheme
+                                            .primary,
+
+                                        MaterialTheme
+                                            .colorScheme
+                                            .primary
+                                            .copy(
+                                                alpha =
+                                                    0.85f
+                                            )
+                                    )
+                                )
+
+                            } else {
+
+                                Brush.horizontalGradient(
+
+                                    listOf(
+
+                                        MaterialTheme
+                                            .colorScheme
+                                            .surface,
+
+                                        MaterialTheme
+                                            .colorScheme
+                                            .surface
+                                    )
+                                )
+                            }
+                        )
+                        .then(
+
+                            if (!isSelected) {
+
+                                Modifier.border(
+
+                                    1.dp,
+
+                                    MaterialTheme
+                                        .colorScheme
+                                        .outline
+                                        .copy(
+                                            alpha =
+                                                0.5f
+                                        ),
+
+                                    RoundedCornerShape(
+                                        14.dp
+                                    )
+                                )
+
+                            } else {
+
+                                Modifier
+                            }
+                        )
+                        .clickable {
+
+                            onDateSelected(
+                                dateStr
+                            )
+                        }
+                        .padding(
+                            horizontal = 16.dp,
+                            vertical = 9.dp
+                        )
             ) {
 
                 Text(
@@ -1418,12 +1617,13 @@ private fun LeagueHeader(
 
     Row(
 
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = 14.dp,
-                vertical = 8.dp
-            ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = 8.dp
+                ),
 
         verticalAlignment =
             Alignment.CenterVertically
@@ -1434,14 +1634,15 @@ private fun LeagueHeader(
          */
         Box(
 
-            modifier = Modifier
-                .size(28.dp)
-                .clip(
-                    RoundedCornerShape(8.dp)
-                )
-                .clickable {
-                    onToggleCollapsed()
-                },
+            modifier =
+                Modifier
+                    .size(28.dp)
+                    .clip(
+                        RoundedCornerShape(8.dp)
+                    )
+                    .clickable {
+                        onToggleCollapsed()
+                    },
 
             contentAlignment =
                 Alignment.Center
@@ -1468,19 +1669,24 @@ private fun LeagueHeader(
         /*
          * ORSZÁG LOGÓ
          */
-        if (!countryLogo.isNullOrBlank()) {
+        if (
+            !countryLogo.isNullOrBlank()
+        ) {
 
             AsyncImage(
 
-                model = countryLogo,
+                model =
+                    countryLogo,
 
-                contentDescription = null,
+                contentDescription =
+                    null,
 
-                modifier = Modifier
-                    .size(17.dp)
-                    .clip(
-                        RoundedCornerShape(2.dp)
-                    ),
+                modifier =
+                    Modifier
+                        .size(17.dp)
+                        .clip(
+                            RoundedCornerShape(2.dp)
+                        ),
 
                 contentScale =
                     ContentScale.Fit
@@ -1495,19 +1701,24 @@ private fun LeagueHeader(
         /*
          * BAJNOKSÁG LOGÓ
          */
-        if (!leagueLogo.isNullOrBlank()) {
+        if (
+            !leagueLogo.isNullOrBlank()
+        ) {
 
             AsyncImage(
 
-                model = leagueLogo,
+                model =
+                    leagueLogo,
 
-                contentDescription = null,
+                contentDescription =
+                    null,
 
-                modifier = Modifier
-                    .size(19.dp)
-                    .clip(
-                        CircleShape
-                    ),
+                modifier =
+                    Modifier
+                        .size(19.dp)
+                        .clip(
+                            CircleShape
+                        ),
 
                 contentScale =
                     ContentScale.Fit
@@ -1524,11 +1735,12 @@ private fun LeagueHeader(
          */
         Column(
 
-            modifier = Modifier
-                .weight(1f)
-                .clickable {
-                    onToggleCollapsed()
-                }
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .clickable {
+                        onToggleCollapsed()
+                    }
         ) {
 
             Text(
@@ -1564,7 +1776,8 @@ private fun LeagueHeader(
                         .colorScheme
                         .onSurfaceVariant
                         .copy(
-                            alpha = 0.75f
+                            alpha =
+                                0.75f
                         )
             )
         }
@@ -1574,7 +1787,8 @@ private fun LeagueHeader(
          */
         Text(
 
-            text = "Tabella",
+            text =
+                "Tabella",
 
             fontSize = 12.sp,
 
@@ -1586,14 +1800,15 @@ private fun LeagueHeader(
                     .colorScheme
                     .primary,
 
-            modifier = Modifier
-                .clickable {
-                    onStandingsClick()
-                }
-                .padding(
-                    horizontal = 8.dp,
-                    vertical = 8.dp
-                )
+            modifier =
+                Modifier
+                    .clickable {
+                        onStandingsClick()
+                    }
+                    .padding(
+                        horizontal = 8.dp,
+                        vertical = 8.dp
+                    )
         )
 
         /*
@@ -1619,11 +1834,14 @@ private fun LeagueHeader(
                         .onSurfaceVariant
                 },
 
-            modifier = Modifier
-                .clickable {
-                    onToggleFavorite()
-                }
-                .padding(start = 4.dp)
+            modifier =
+                Modifier
+                    .clickable {
+                        onToggleFavorite()
+                    }
+                    .padding(
+                        start = 4.dp
+                    )
         )
     }
 }
