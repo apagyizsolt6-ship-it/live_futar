@@ -34,9 +34,24 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
+/*
+ * ============================================================
+ * LIVE FUTÁR
+ * HomeScreen / Meccsek
+ *
+ * Változás:
+ * - ország ABC
+ * - bajnokság ABC
+ * - Friendlies mindig a lista végén
+ * - bajnokságok nyitható / zárható
+ * - 3h / 6h / 9h valódi szűrő
+ * ============================================================
+ */
+
 private data class LeagueGroup(
     val key: String,
     val displayName: String,
+    val countryName: String,
     val matches: List<MatchModel>
 )
 
@@ -66,6 +81,7 @@ fun HomeScreen(
     onMatchClick: (MatchModel) -> Unit,
     onStandingsClick: (MatchModel) -> Unit
 ) {
+
     var filtersExpanded by rememberSaveable {
         mutableStateOf(false)
     }
@@ -79,13 +95,11 @@ fun HomeScreen(
     }
 
     /*
-     * Alapból minden átadott mérkőzés megjelenik.
-     *
-     * A 3 / 6 / 9 órás gombok valódi, kattintható
-     * időablak-szűrők. Ezek a már lekért teljes napi
-     * listából dolgoznak, így nem fogyasztanak új API
-     * lekérést minden gombnyomásnál.
+     * ============================================================
+     * SZŰRÉS
+     * ============================================================
      */
+
     val filteredMatches = remember(
         matches,
         favoriteTeamIds,
@@ -95,71 +109,70 @@ fun HomeScreen(
         selectedTimeWindow
     ) {
 
-        var result =
-            matches
+        var result = matches
 
         /*
-         * KEDVENCEK SZŰRÉSE
+         * KEDVENCEK
          */
         if (showOnlyFavorites) {
+            result = result.filter { match ->
 
-            result =
-                result.filter { match ->
-
-                    (
-                        match.league?.id != null &&
-                            favoriteLeagueIds.contains(
-                                match.league.id
-                            )
-                        ) ||
-
-                        (
-                            match.homeTeam?.id != null &&
-                                favoriteTeamIds.contains(
-                                    match.homeTeam.id
-                                )
-                            ) ||
-
-                        (
-                            match.awayTeam?.id != null &&
-                                favoriteTeamIds.contains(
-                                    match.awayTeam.id
-                                )
-                            )
-                }
+                (
+                    match.league?.id != null &&
+                        favoriteLeagueIds.contains(
+                            match.league.id
+                        )
+                ) ||
+                (
+                    match.homeTeam?.id != null &&
+                        favoriteTeamIds.contains(
+                            match.homeTeam.id
+                        )
+                ) ||
+                (
+                    match.awayTeam?.id != null &&
+                        favoriteTeamIds.contains(
+                            match.awayTeam.id
+                        )
+                )
+            }
         }
 
         /*
-         * ÉLŐ SZŰRÉS
+         * ÉLŐ
          */
         if (showOnlyLive) {
-
-            result =
-                result.filter {
-                    it.isLive
-                }
+            result = result.filter {
+                it.isLive
+            }
         }
 
         /*
-         * 3 / 6 / 9 ÓRÁS KATTINTHATÓ IDŐABLAK
+         * 3 / 6 / 9 ÓRÁS SZŰRŐ
          *
-         * Csak a még el nem kezdődött mérkőzéseket
-         * szűrjük az adott időablakra.
+         * Csak a még el nem kezdődött meccsekre vonatkozik.
          */
         if (selectedTimeWindow != TimeWindowFilter.NONE) {
 
-            val nowMillis = System.currentTimeMillis()
+            val nowMillis =
+                System.currentTimeMillis()
+
             val untilMillis =
                 nowMillis +
                     selectedTimeWindow.hours.toLong() *
-                    60L * 60L * 1000L
+                    60L *
+                    60L *
+                    1000L
 
             result = result.filter { match ->
 
                 if (!match.isNotStarted) {
                     false
                 } else {
-                    val kickoff = match.kickoffMillis
+
+                    val kickoff =
+                        match.kickoffMillis
+
                     kickoff != null &&
                         kickoff >= nowMillis &&
                         kickoff <= untilMillis
@@ -167,14 +180,15 @@ fun HomeScreen(
             }
         }
 
+        /*
+         * A meccseket idő szerint rendezzük.
+         */
         result.sortedWith(
-
             compareBy<MatchModel> {
 
                 parseMatchDate(
                     it.date
-                )?.time
-                    ?: Long.MAX_VALUE
+                )?.time ?: Long.MAX_VALUE
 
             }.thenBy {
 
@@ -184,16 +198,28 @@ fun HomeScreen(
     }
 
     /*
+     * ============================================================
      * ÉLŐ MECCSEK SZÁMA
+     * ============================================================
      */
+
     val liveCount =
         matches.count {
             it.isLive
         }
 
     /*
+     * ============================================================
      * BAJNOKSÁGOK CSOPORTOSÍTÁSA
+     * ============================================================
+     *
+     * FONTOS:
+     *
+     * 1. Friendlies -> mindig utolsó
+     * 2. Ország -> ABC
+     * 3. Bajnokság -> ABC
      */
+
     val grouped =
         filteredMatches
             .groupBy { match ->
@@ -201,18 +227,22 @@ fun HomeScreen(
             }
             .map { (key, list) ->
 
+                val first =
+                    list.firstOrNull()
+
+                val displayName =
+                    first?.leagueDisplayName
+                        ?: "Egyéb mérkőzések"
+
                 LeagueGroup(
-
                     key = key,
-
-                    displayName =
-                        list.firstOrNull()
-                            ?.leagueDisplayName
-                            ?: "Egyéb mérkőzések",
-
+                    displayName = displayName,
+                    countryName =
+                        extractCountryName(
+                            displayName
+                        ),
                     matches =
                         list.sortedWith(
-
                             compareBy<MatchModel> {
 
                                 parseMatchDate(
@@ -231,21 +261,44 @@ fun HomeScreen(
 
                 compareBy<LeagueGroup> {
 
-                    it.matches
-                        .firstOrNull()
-                        ?.let { match ->
-
-                            parseMatchDate(
-                                match.date
-                            )?.time
-                        }
-                        ?: Long.MAX_VALUE
+                    /*
+                     * Friendlies mindig utolsó.
+                     */
+                    if (
+                        isFriendlyLeague(
+                            it.displayName
+                        )
+                    ) {
+                        1
+                    } else {
+                        0
+                    }
 
                 }.thenBy {
 
-                    it.displayName
+                    /*
+                     * ORSZÁG ABC
+                     */
+                    normalizeForSort(
+                        it.countryName
+                    )
+
+                }.thenBy {
+
+                    /*
+                     * BAJNOKSÁG ABC
+                     */
+                    normalizeForSort(
+                        it.displayName
+                    )
                 }
             )
+
+    /*
+     * ============================================================
+     * UI
+     * ============================================================
+     */
 
     Scaffold(
 
@@ -262,10 +315,8 @@ fun HomeScreen(
 
                         Text(
                             text = "LIVE FUTÁR",
-
                             fontWeight =
                                 FontWeight.Bold,
-
                             fontSize = 18.sp
                         )
 
@@ -287,8 +338,7 @@ fun HomeScreen(
                             )
 
                             LiveBadge(
-                                count =
-                                    liveCount
+                                count = liveCount
                             )
                         }
                     }
@@ -300,127 +350,103 @@ fun HomeScreen(
                      * FRISSÍTÉS
                      */
                     Text(
-
                         text =
                             if (isRefreshing) {
                                 "…"
                             } else {
                                 "↻"
                             },
-
                         fontSize = 20.sp,
-
                         color =
                             MaterialTheme
                                 .colorScheme
                                 .primary,
-
                         modifier =
                             Modifier
-                                .padding(
-                                    end = 6.dp
-                                )
+                                .padding(end = 6.dp)
                                 .clickable(
                                     enabled =
                                         !isRefreshing
                                 ) {
-
                                     onRefresh()
                                 }
                     )
 
                     /*
-                     * ÉLŐ SZŰRŐ
+                     * ÉLŐ
                      */
                     FilterChip(
-
                         selected =
                             showOnlyLive,
-
                         onClick =
                             onToggleShowOnlyLive,
-
                         label = {
 
                             Text(
-
                                 text =
                                     if (showOnlyLive) {
                                         "ÉLŐ"
                                     } else {
                                         "Élő"
                                     },
-
                                 fontSize = 12.sp,
-
                                 fontWeight =
                                     FontWeight.Bold
                             )
                         },
-
                         colors =
                             FilterChipDefaults
                                 .filterChipColors(
-
                                     selectedContainerColor =
                                         AccentGreen.copy(
                                             alpha = 0.25f
                                         ),
-
                                     selectedLabelColor =
                                         AccentGreen,
-
                                     containerColor =
                                         MaterialTheme
                                             .colorScheme
                                             .surfaceVariant,
-
                                     labelColor =
                                         MaterialTheme
                                             .colorScheme
                                             .onSurfaceVariant
                                 ),
-
                         modifier =
-                            Modifier
-                                .padding(
-                                    end = 4.dp
-                                )
+                            Modifier.padding(
+                                end = 4.dp
+                            )
                     )
 
                     /*
                      * KEDVENCEK
                      */
                     Text(
-
                         text =
-                            if (showOnlyFavorites) {
+                            if (
+                                showOnlyFavorites
+                            ) {
                                 "★"
                             } else {
                                 "☆"
                             },
-
                         fontSize = 22.sp,
-
                         color =
-                            if (showOnlyFavorites) {
-
+                            if (
+                                showOnlyFavorites
+                            ) {
                                 AccentGold
-
                             } else {
-
                                 MaterialTheme
                                     .colorScheme
                                     .onSurfaceVariant
                             },
-
                         modifier =
                             Modifier
                                 .padding(
                                     end = 14.dp
                                 )
                                 .clickable {
-
                                     onToggleShowOnlyFavorites()
                                 }
                     )
@@ -429,12 +455,10 @@ fun HomeScreen(
                 colors =
                     TopAppBarDefaults
                         .topAppBarColors(
-
                             containerColor =
                                 MaterialTheme
                                     .colorScheme
                                     .surface,
-
                             titleContentColor =
                                 MaterialTheme
                                     .colorScheme
@@ -466,45 +490,51 @@ fun HomeScreen(
         ) {
 
             /*
-             * DÁTUMVÁLASZTÓ
+             * DÁTUM
              */
             item {
 
                 DateStrip(
-
                     selectedDate =
                         selectedDate,
-
                     onDateSelected =
                         onDateSelected
                 )
             }
 
             /*
-             * ÉLŐ + 3 / 6 / 9 ÓRÁS KATTINTHATÓ LEKÉRÉSI NÉZETEK
+             * 3 / 6 / 9 ÓRÁS SZŰRŐ
              */
             item {
 
                 TimeWindowBar(
-
-                    liveSelected = showOnlyLive,
-
-                    timeWindow = selectedTimeWindow,
-
-                    liveCount = liveCount,
+                    liveSelected =
+                        showOnlyLive,
+                    timeWindow =
+                        selectedTimeWindow,
+                    liveCount =
+                        liveCount,
 
                     onLiveClick = {
-                        selectedTimeWindow = TimeWindowFilter.NONE
+
+                        selectedTimeWindow =
+                            TimeWindowFilter.NONE
+
                         onToggleShowOnlyLive()
                     },
 
-                    onTimeWindowClick = { window ->
+                    onTimeWindowClick = {
+                        window ->
+
                         if (showOnlyLive) {
                             onToggleShowOnlyLive()
                         }
 
                         selectedTimeWindow =
-                            if (selectedTimeWindow == window) {
+                            if (
+                                selectedTimeWindow ==
+                                    window
+                            ) {
                                 TimeWindowFilter.NONE
                             } else {
                                 window
@@ -514,28 +544,23 @@ fun HomeScreen(
             }
 
             /*
-             * DÁTUM
+             * DÁTUM FELIRAT
              */
             item {
 
                 Text(
-
                     text =
                         DateUtils.fullDateLabel(
                             selectedDate
                         ),
-
                     fontSize = 14.sp,
-
                     fontWeight =
                         FontWeight.SemiBold,
-
                     modifier =
                         Modifier.padding(
                             horizontal = 14.dp,
                             vertical = 6.dp
                         ),
-
                     color =
                         MaterialTheme
                             .colorScheme
@@ -549,19 +574,15 @@ fun HomeScreen(
             item {
 
                 FilterHeader(
-
                     expanded =
                         filtersExpanded,
-
                     activeCount =
                         activeFilterCount(
                             showOnlyLive,
                             showOnlyFavorites,
                             selectedTimeWindow
                         ),
-
                     onClick = {
-
                         filtersExpanded =
                             !filtersExpanded
                     }
@@ -569,35 +590,31 @@ fun HomeScreen(
             }
 
             /*
-             * LENYITHATÓ SZŰRŐPANEL
+             * SZŰRŐPANEL
              */
             if (filtersExpanded) {
 
                 item {
 
                     FilterPanel(
-
                         showOnlyLive =
                             showOnlyLive,
-
                         onToggleLive =
                             onToggleShowOnlyLive,
-
                         showOnlyFavorites =
                             showOnlyFavorites,
-
                         onToggleFavorites =
                             onToggleShowOnlyFavorites,
-
                         onClear = {
 
-                            if (showOnlyLive) {
+                            selectedTimeWindow =
+                                TimeWindowFilter.NONE
 
+                            if (showOnlyLive) {
                                 onToggleShowOnlyLive()
                             }
 
                             if (showOnlyFavorites) {
-
                                 onToggleShowOnlyFavorites()
                             }
                         }
@@ -608,15 +625,15 @@ fun HomeScreen(
             /*
              * NINCS TALÁLAT
              */
-            if (filteredMatches.isEmpty()) {
+            if (
+                filteredMatches.isEmpty()
+            ) {
 
                 item {
 
                     EmptyState(
-
                         showOnlyFavorites =
                             showOnlyFavorites,
-
                         showOnlyLive =
                             showOnlyLive
                     )
@@ -625,22 +642,24 @@ fun HomeScreen(
             } else {
 
                 /*
+                 * =================================================
                  * BAJNOKSÁGOK
+                 * =================================================
                  */
                 grouped.forEach { group ->
 
                     val first =
-                        group.matches
-                            .firstOrNull()
+                        group.matches.firstOrNull()
 
                     val leagueId =
                         first?.league?.id
 
                     val isFavoriteLeague =
                         leagueId != null &&
-                            favoriteLeagueIds.contains(
-                                leagueId
-                            )
+                            favoriteLeagueIds
+                                .contains(
+                                    leagueId
+                                )
 
                     val isCollapsed =
                         collapsedLeagues[
@@ -648,7 +667,7 @@ fun HomeScreen(
                         ] == true
 
                     /*
-                     * BAJNOKSÁG FEJLÉC
+                     * FEJLÉC
                      */
                     item(
                         key =
@@ -656,22 +675,16 @@ fun HomeScreen(
                     ) {
 
                         LeagueHeader(
-
                             leagueDisplayName =
                                 group.displayName,
-
                             leagueLogo =
                                 first?.league?.logo,
-
                             countryLogo =
                                 first?.country?.logo,
-
                             isFavorite =
                                 isFavoriteLeague,
-
                             matchCount =
                                 group.matches.size,
-
                             collapsed =
                                 isCollapsed,
 
@@ -700,7 +713,7 @@ fun HomeScreen(
                     }
 
                     /*
-                     * BAJNOKSÁG MECCSEI
+                     * MECCSEK
                      */
                     if (!isCollapsed) {
 
@@ -716,60 +729,50 @@ fun HomeScreen(
 
                         ) { match ->
 
-                            Column(
+                            MatchCard(
 
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                            ) {
+                                match =
+                                    match,
 
-                                MatchCard(
+                                isHomeFavorite =
+                                    match.homeTeam?.id != null &&
+                                        favoriteTeamIds
+                                            .contains(
+                                                match.homeTeam.id
+                                            ),
 
-                                    match =
-                                        match,
+                                isAwayFavorite =
+                                    match.awayTeam?.id != null &&
+                                        favoriteTeamIds
+                                            .contains(
+                                                match.awayTeam.id
+                                            ),
 
-                                    isHomeFavorite =
-                                        match.homeTeam
-                                            ?.id != null &&
-                                            favoriteTeamIds
-                                                .contains(
-                                                    match.homeTeam.id
-                                                ),
+                                onToggleHomeFavorite = {
 
-                                    isAwayFavorite =
-                                        match.awayTeam
-                                            ?.id != null &&
-                                            favoriteTeamIds
-                                                .contains(
-                                                    match.awayTeam.id
-                                                ),
-
-                                    onToggleHomeFavorite = {
-
-                                        match.homeTeam
-                                            ?.id
-                                            ?.let(
-                                                onToggleTeamFavorite
-                                            )
-                                    },
-
-                                    onToggleAwayFavorite = {
-
-                                        match.awayTeam
-                                            ?.id
-                                            ?.let(
-                                                onToggleTeamFavorite
-                                            )
-                                    },
-
-                                    onClick = {
-
-                                        onMatchClick(
-                                            match
+                                    match.homeTeam
+                                        ?.id
+                                        ?.let(
+                                            onToggleTeamFavorite
                                         )
-                                    }
-                                )
-                            }
+                                },
+
+                                onToggleAwayFavorite = {
+
+                                    match.awayTeam
+                                        ?.id
+                                        ?.let(
+                                            onToggleTeamFavorite
+                                        )
+                                },
+
+                                onClick = {
+
+                                    onMatchClick(
+                                        match
+                                    )
+                                }
+                            )
                         }
                     }
                 }
@@ -789,12 +792,11 @@ fun HomeScreen(
 }
 
 /*
- * AKTÍV SZŰRŐK SZÁMA
- *
- * Csak:
- * - Élő
- * - Kedvencek
+ * ============================================================
+ * SEGÉDFÜGGVÉNYEK
+ * ============================================================
  */
+
 private fun activeFilterCount(
     showOnlyLive: Boolean,
     showOnlyFavorites: Boolean,
@@ -811,7 +813,10 @@ private fun activeFilterCount(
         count++
     }
 
-    if (timeWindow != TimeWindowFilter.NONE) {
+    if (
+        timeWindow !=
+            TimeWindowFilter.NONE
+    ) {
         count++
     }
 
@@ -819,7 +824,7 @@ private fun activeFilterCount(
 }
 
 /*
- * BAJNOKSÁG AZONOSÍTÓ
+ * BAJNOKSÁG ID
  */
 private fun leagueKey(
     match: MatchModel
@@ -832,13 +837,164 @@ private fun leagueKey(
 }
 
 /*
- * MECCS IDŐPONT PARSOLÁSA
+ * ============================================================
+ * ORSZÁGNÉV KINYERÉSE
+ * ============================================================
+ *
+ * Az API jelenlegi megjelenítési formája:
+ *
+ * "Chile · Primera B"
+ * "Franciaország · Ligue 2"
+ * "Wales · Premier League"
+ *
+ * Ezért a "·" előtti részt használjuk országként.
  */
+
+private fun extractCountryName(
+    leagueDisplayName: String
+): String {
+
+    val separator =
+        leagueDisplayName.indexOf("·")
+
+    if (separator > 0) {
+
+        return leagueDisplayName
+            .substring(
+                0,
+                separator
+            )
+            .trim()
+    }
+
+    /*
+     * Ha nincs ország + liga formátum,
+     * próbáljuk meg a gyakori formákat.
+     */
+    return when {
+
+        leagueDisplayName
+            .contains(
+                "Friendly",
+                ignoreCase = true
+            ) ->
+            "ZZZ"
+
+        leagueDisplayName
+            .contains(
+                "Barátságos",
+                ignoreCase = true
+            ) ->
+            "ZZZ"
+
+        else ->
+            "Egyéb"
+    }
+}
+
+/*
+ * ============================================================
+ * FRIENDLY FELISMERÉS
+ * ============================================================
+ */
+
+private fun isFriendlyLeague(
+    name: String
+): Boolean {
+
+    val value =
+        name
+            .trim()
+            .lowercase(
+                Locale.ROOT
+            )
+
+    return value.contains(
+        "friendly"
+    ) ||
+        value.contains(
+            "friendlies"
+        ) ||
+        value.contains(
+            "barátságos"
+        ) ||
+        value.contains(
+            "baratsagos"
+        ) ||
+        value.contains(
+            "club friendlies"
+        ) ||
+        value.contains(
+            "international friendlies"
+        )
+}
+
+/*
+ * ============================================================
+ * ABC RENDEZÉS NORMALIZÁLÁSSAL
+ * ============================================================
+ */
+
+private fun normalizeForSort(
+    value: String
+): String {
+
+    return value
+        .trim()
+        .lowercase(
+            Locale.ROOT
+        )
+        .replace(
+            "á",
+            "a"
+        )
+        .replace(
+            "é",
+            "e"
+        )
+        .replace(
+            "í",
+            "i"
+        )
+        .replace(
+            "ó",
+            "o"
+        )
+        .replace(
+            "ö",
+            "o"
+        )
+        .replace(
+            "ő",
+            "o"
+        )
+        .replace(
+            "ú",
+            "u"
+        )
+        .replace(
+            "ü",
+            "u"
+        )
+        .replace(
+            "ű",
+            "u"
+        )
+}
+
+/*
+ * ============================================================
+ * DÁTUM PARSOLÁS
+ * ============================================================
+ */
+
 private fun parseMatchDate(
     value: String?
 ): Date? {
 
-    if (value.isNullOrBlank()) {
+    if (
+        value.isNullOrBlank()
+    ) {
         return null
     }
 
@@ -867,7 +1023,9 @@ private fun parseMatchDate(
                 )
 
             if (
-                pattern.contains("'Z'")
+                pattern.contains(
+                    "'Z'"
+                )
             ) {
 
                 formatter.timeZone =
@@ -883,15 +1041,18 @@ private fun parseMatchDate(
         } catch (
             _: ParseException
         ) {
-
-            /*
-             * Következő formátum.
-             */
+            // következő formátum
         }
     }
 
     return null
 }
+
+/*
+ * ============================================================
+ * 3 / 6 / 9 ÓRÁS SÁV
+ * ============================================================
+ */
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -900,68 +1061,121 @@ private fun TimeWindowBar(
     timeWindow: TimeWindowFilter,
     liveCount: Int,
     onLiveClick: () -> Unit,
-    onTimeWindowClick: (TimeWindowFilter) -> Unit
+    onTimeWindowClick:
+        (TimeWindowFilter) -> Unit
 ) {
 
     LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = 12.dp,
-                vertical = 6.dp
+
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 12.dp,
+                    vertical = 6.dp
+                ),
+
+        horizontalArrangement =
+            Arrangement.spacedBy(
+                8.dp
             ),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(horizontal = 2.dp)
+
+        contentPadding =
+            PaddingValues(
+                horizontal = 2.dp
+            )
     ) {
 
         item {
+
             FilterChip(
-                selected = liveSelected,
-                onClick = onLiveClick,
+
+                selected =
+                    liveSelected,
+
+                onClick =
+                    onLiveClick,
+
                 label = {
+
                     Text(
-                        text = if (liveCount > 0) {
-                            "🔴 ÉLŐ $liveCount"
-                        } else {
-                            "🔴 ÉLŐ"
-                        },
-                        fontWeight = FontWeight.Bold,
+
+                        text =
+                            if (
+                                liveCount > 0
+                            ) {
+                                "🔴 ÉLŐ $liveCount"
+                            } else {
+                                "🔴 ÉLŐ"
+                            },
+
+                        fontWeight =
+                            FontWeight.Bold,
+
                         fontSize = 12.sp
                     )
                 },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = AccentGreen.copy(alpha = 0.22f),
-                    selectedLabelColor = AccentGreen
-                )
+
+                colors =
+                    FilterChipDefaults
+                        .filterChipColors(
+
+                            selectedContainerColor =
+                                AccentGreen.copy(
+                                    alpha =
+                                        0.22f
+                                ),
+
+                            selectedLabelColor =
+                                AccentGreen
+                        )
             )
         }
 
         item {
+
             TimeWindowChip(
                 label = "⏱ <3h",
-                selected = timeWindow == TimeWindowFilter.THREE,
+                selected =
+                    timeWindow ==
+                        TimeWindowFilter.THREE,
                 onClick = {
-                    onTimeWindowClick(TimeWindowFilter.THREE)
+
+                    onTimeWindowClick(
+                        TimeWindowFilter.THREE
+                    )
                 }
             )
         }
 
         item {
+
             TimeWindowChip(
                 label = "⏱ <6h",
-                selected = timeWindow == TimeWindowFilter.SIX,
+                selected =
+                    timeWindow ==
+                        TimeWindowFilter.SIX,
                 onClick = {
-                    onTimeWindowClick(TimeWindowFilter.SIX)
+
+                    onTimeWindowClick(
+                        TimeWindowFilter.SIX
+                    )
                 }
             )
         }
 
         item {
+
             TimeWindowChip(
                 label = "⏱ <9h",
-                selected = timeWindow == TimeWindowFilter.NINE,
+                selected =
+                    timeWindow ==
+                        TimeWindowFilter.NINE,
                 onClick = {
-                    onTimeWindowClick(TimeWindowFilter.NINE)
+
+                    onTimeWindowClick(
+                        TimeWindowFilter.NINE
+                    )
                 }
             )
         }
@@ -975,26 +1189,52 @@ private fun TimeWindowChip(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+
     FilterChip(
-        selected = selected,
-        onClick = onClick,
+
+        selected =
+            selected,
+
+        onClick =
+            onClick,
+
         label = {
+
             Text(
                 text = label,
-                fontWeight = FontWeight.Bold,
+                fontWeight =
+                    FontWeight.Bold,
                 fontSize = 12.sp
             )
         },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-            selectedLabelColor = MaterialTheme.colorScheme.primary
-        )
+
+        colors =
+            FilterChipDefaults
+                .filterChipColors(
+
+                    selectedContainerColor =
+                        MaterialTheme
+                            .colorScheme
+                            .primary
+                            .copy(
+                                alpha =
+                                    0.18f
+                            ),
+
+                    selectedLabelColor =
+                        MaterialTheme
+                            .colorScheme
+                            .primary
+                )
     )
 }
 
 /*
+ * ============================================================
  * SZŰRŐ FEJLÉC
+ * ============================================================
  */
+
 @Composable
 private fun FilterHeader(
     expanded: Boolean,
@@ -1012,7 +1252,9 @@ private fun FilterHeader(
                     vertical = 6.dp
                 )
                 .clip(
-                    RoundedCornerShape(14.dp)
+                    RoundedCornerShape(
+                        14.dp
+                    )
                 )
                 .background(
                     MaterialTheme
@@ -1021,15 +1263,16 @@ private fun FilterHeader(
                 )
                 .border(
                     1.dp,
-
                     MaterialTheme
                         .colorScheme
                         .outline
                         .copy(
-                            alpha = 0.35f
+                            alpha =
+                                0.35f
                         ),
-
-                    RoundedCornerShape(14.dp)
+                    RoundedCornerShape(
+                        14.dp
+                    )
                 )
                 .clickable {
                     onClick()
@@ -1044,15 +1287,10 @@ private fun FilterHeader(
     ) {
 
         Text(
-
-            text =
-                "⚙ Szűrők",
-
+            text = "⚙ Szűrők",
             fontSize = 14.sp,
-
             fontWeight =
                 FontWeight.Bold,
-
             color =
                 MaterialTheme
                     .colorScheme
@@ -1071,11 +1309,14 @@ private fun FilterHeader(
                 modifier =
                     Modifier
                         .clip(
-                            RoundedCornerShape(8.dp)
+                            RoundedCornerShape(
+                                8.dp
+                            )
                         )
                         .background(
                             AccentGreen.copy(
-                                alpha = 0.16f
+                                alpha =
+                                    0.16f
                             )
                         )
                         .padding(
@@ -1085,15 +1326,11 @@ private fun FilterHeader(
             ) {
 
                 Text(
-
                     text =
                         activeCount.toString(),
-
                     fontSize = 11.sp,
-
                     fontWeight =
                         FontWeight.Bold,
-
                     color =
                         AccentGreen
                 )
@@ -1106,16 +1343,13 @@ private fun FilterHeader(
         )
 
         Text(
-
             text =
                 if (expanded) {
                     "▲"
                 } else {
                     "▼"
                 },
-
             fontSize = 13.sp,
-
             color =
                 MaterialTheme
                     .colorScheme
@@ -1125,20 +1359,11 @@ private fun FilterHeader(
 }
 
 /*
+ * ============================================================
  * SZŰRŐPANEL
- *
- * FONTOS:
- * A Material3 FilterChip / AssistChip API
- * miatt itt is szükséges az OptIn.
- *
- * A 3 / 6 / 9 órás szűrés SZÁNDÉKOSAN
- * kikerült.
- *
- * Csak:
- * - Élő
- * - Kedvencek
- * - Szűrők törlése
+ * ============================================================
  */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterPanel(
@@ -1159,34 +1384,32 @@ private fun FilterPanel(
                     vertical = 2.dp
                 )
                 .clip(
-                    RoundedCornerShape(16.dp)
+                    RoundedCornerShape(
+                        16.dp
+                    )
                 )
                 .background(
                     MaterialTheme
                         .colorScheme
                         .surfaceVariant
                         .copy(
-                            alpha = 0.55f
+                            alpha =
+                                0.55f
                         )
                 )
                 .padding(12.dp)
     ) {
 
         Text(
-
             text =
                 "További szűrők",
-
             fontSize = 12.sp,
-
             fontWeight =
                 FontWeight.Bold,
-
             color =
                 MaterialTheme
                     .colorScheme
                     .onSurfaceVariant,
-
             modifier =
                 Modifier.padding(
                     bottom = 6.dp
@@ -1201,93 +1424,66 @@ private fun FilterPanel(
                 )
         ) {
 
-            /*
-             * ÉLŐ
-             */
             item {
 
                 FilterChip(
-
                     selected =
                         showOnlyLive,
-
                     onClick =
                         onToggleLive,
-
                     label = {
-
                         Text(
-                            text =
-                                "🔴 Élő"
+                            "🔴 Élő"
                         )
                     },
-
                     colors =
                         FilterChipDefaults
                             .filterChipColors(
-
                                 selectedContainerColor =
                                     AccentGreen.copy(
-                                        alpha = 0.18f
+                                        alpha =
+                                            0.18f
                                     ),
-
                                 selectedLabelColor =
                                     AccentGreen
                             )
                 )
             }
 
-            /*
-             * KEDVENCEK
-             */
             item {
 
                 FilterChip(
-
                     selected =
                         showOnlyFavorites,
-
                     onClick =
                         onToggleFavorites,
-
                     label = {
-
                         Text(
-                            text =
-                                "★ Kedvencek"
+                            "★ Kedvencek"
                         )
                     },
-
                     colors =
                         FilterChipDefaults
                             .filterChipColors(
-
                                 selectedContainerColor =
                                     AccentGold.copy(
-                                        alpha = 0.18f
+                                        alpha =
+                                            0.18f
                                     ),
-
                                 selectedLabelColor =
                                     AccentGold
                             )
                 )
             }
 
-            /*
-             * SZŰRŐK TÖRLÉSE
-             */
             item {
 
                 AssistChip(
-
                     onClick =
                         onClear,
-
                     label = {
-
                         Text(
-                            text =
-                                "Szűrők törlése"
+                            "Szűrők törlése"
                         )
                     }
                 )
@@ -1297,8 +1493,11 @@ private fun FilterPanel(
 }
 
 /*
- * ÉLŐ JELZŐ
+ * ============================================================
+ * ÉLŐ BADGE
+ * ============================================================
  */
+
 @Composable
 private fun LiveBadge(
     count: Int
@@ -1309,21 +1508,25 @@ private fun LiveBadge(
         modifier =
             Modifier
                 .clip(
-                    RoundedCornerShape(10.dp)
+                    RoundedCornerShape(
+                        10.dp
+                    )
                 )
                 .background(
                     AccentGreen.copy(
-                        alpha = 0.18f
+                        alpha =
+                            0.18f
                     )
                 )
                 .border(
                     1.dp,
-
                     AccentGreen.copy(
-                        alpha = 0.5f
+                        alpha =
+                            0.5f
                     ),
-
-                    RoundedCornerShape(10.dp)
+                    RoundedCornerShape(
+                        10.dp
+                    )
                 )
                 .padding(
                     horizontal = 8.dp,
@@ -1332,18 +1535,13 @@ private fun LiveBadge(
     ) {
 
         Text(
-
             text =
                 "ÉLŐ $count",
-
             fontSize = 11.sp,
-
             fontWeight =
                 FontWeight.Bold,
-
             color =
                 AccentGreen,
-
             letterSpacing =
                 0.4.sp
         )
@@ -1351,8 +1549,11 @@ private fun LiveBadge(
 }
 
 /*
+ * ============================================================
  * ÜRES ÁLLAPOT
+ * ============================================================
  */
+
 @Composable
 private fun EmptyState(
     showOnlyFavorites: Boolean,
@@ -1413,17 +1614,13 @@ private fun EmptyState(
             )
 
             Text(
-
                 text =
                     message,
-
                 color =
                     MaterialTheme
                         .colorScheme
                         .onSurfaceVariant,
-
                 fontSize = 15.sp,
-
                 fontWeight =
                     FontWeight.Medium
             )
@@ -1432,8 +1629,11 @@ private fun EmptyState(
 }
 
 /*
+ * ============================================================
  * DÁTUMVÁLASZTÓ
+ * ============================================================
  */
+
 @Composable
 private fun DateStrip(
     selectedDate: String,
@@ -1442,7 +1642,6 @@ private fun DateStrip(
 
     val dates =
         remember(Unit) {
-
             DateUtils.dateStrip()
         }
 
@@ -1469,21 +1668,23 @@ private fun DateStrip(
         items(dates) { dateStr ->
 
             val isSelected =
-                dateStr == selectedDate
+                dateStr ==
+                    selectedDate
 
             Box(
 
                 modifier =
                     Modifier
                         .clip(
-                            RoundedCornerShape(14.dp)
+                            RoundedCornerShape(
+                                14.dp
+                            )
                         )
                         .background(
 
                             if (isSelected) {
 
                                 Brush.horizontalGradient(
-
                                     listOf(
 
                                         MaterialTheme
@@ -1503,7 +1704,6 @@ private fun DateStrip(
                             } else {
 
                                 Brush.horizontalGradient(
-
                                     listOf(
 
                                         MaterialTheme
@@ -1522,7 +1722,6 @@ private fun DateStrip(
                             if (!isSelected) {
 
                                 Modifier.border(
-
                                     1.dp,
 
                                     MaterialTheme
@@ -1556,24 +1755,18 @@ private fun DateStrip(
             ) {
 
                 Text(
-
                     text =
-                        DateUtils.shortChipLabel(
-                            dateStr
-                        ),
-
+                        DateUtils
+                            .shortChipLabel(
+                                dateStr
+                            ),
                     fontSize = 13.sp,
-
                     fontWeight =
                         FontWeight.Bold,
-
                     color =
                         if (isSelected) {
-
                             Color.White
-
                         } else {
-
                             MaterialTheme
                                 .colorScheme
                                 .onSurface
@@ -1585,8 +1778,11 @@ private fun DateStrip(
 }
 
 /*
+ * ============================================================
  * BAJNOKSÁG FEJLÉC
+ * ============================================================
  */
+
 @Composable
 private fun LeagueHeader(
     leagueDisplayName: String,
@@ -1623,7 +1819,9 @@ private fun LeagueHeader(
                 Modifier
                     .size(28.dp)
                     .clip(
-                        RoundedCornerShape(8.dp)
+                        RoundedCornerShape(
+                            8.dp
+                        )
                     )
                     .clickable {
                         onToggleCollapsed()
@@ -1634,16 +1832,13 @@ private fun LeagueHeader(
         ) {
 
             Text(
-
                 text =
                     if (collapsed) {
                         "▶"
                     } else {
                         "▼"
                     },
-
                 fontSize = 11.sp,
-
                 color =
                     MaterialTheme
                         .colorScheme
@@ -1670,7 +1865,9 @@ private fun LeagueHeader(
                     Modifier
                         .size(17.dp)
                         .clip(
-                            RoundedCornerShape(2.dp)
+                            RoundedCornerShape(
+                                2.dp
+                            )
                         ),
 
                 contentScale =
@@ -1716,7 +1913,7 @@ private fun LeagueHeader(
         }
 
         /*
-         * BAJNOKSÁG NEVE
+         * BAJNOKSÁG
          */
         Column(
 
@@ -1761,7 +1958,8 @@ private fun LeagueHeader(
                         .colorScheme
                         .onSurfaceVariant
                         .copy(
-                            alpha = 0.75f
+                            alpha =
+                                0.75f
                         )
             )
         }
@@ -1796,7 +1994,7 @@ private fun LeagueHeader(
         )
 
         /*
-         * BAJNOKSÁG KEDVENC
+         * KEDVENC BAJNOKSÁG
          */
         Text(
 
@@ -1811,11 +2009,8 @@ private fun LeagueHeader(
 
             color =
                 if (isFavorite) {
-
                     AccentGold
-
                 } else {
-
                     MaterialTheme
                         .colorScheme
                         .onSurfaceVariant
