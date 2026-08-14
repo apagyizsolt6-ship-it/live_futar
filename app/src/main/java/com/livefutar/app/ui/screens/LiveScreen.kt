@@ -3,17 +3,33 @@ package com.livefutar.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -22,7 +38,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.MatchCard
-import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
 import java.text.ParseException
 import java.text.SimpleDateFormat
@@ -30,109 +45,165 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
+
 /*
  * ============================================================
  * LIVE FUTÁR
- * Élő mérkőzések
  *
- * Változás:
- * - ország ABC
- * - bajnokság ABC
- * - Friendlies mindig legvégén
- * - bajnokságok nyitható / zárható
+ * Élő mérkőzések képernyő
+ *
+ * Funkciók:
+ *
+ * - csak élő mérkőzések
+ * - országok ABC sorrendben
+ * - országon belül bajnokság ABC sorrendben
+ * - Friendlies / Barátságos mérkőzések mindig legalul
+ * - bajnokságok nyithatók / zárhatók
+ * - élő mérkőzések számláló
+ * - frissítés gomb
+ * - kedvenc csapatok
+ * - meccs részletek megnyitása
+ *
+ * FONTOS:
+ *
+ * A 3h / 6h / 9h szűrők NEM ezen a képernyőn vannak.
+ * Ezek a Meccsek / HomeScreen oldalon működnek.
+ *
+ * ============================================================
+ */
+
+
+/*
+ * ============================================================
+ * BAJNOKSÁG CSOPORT
  * ============================================================
  */
 
 private data class LiveLeagueGroup(
+
     val key: String,
+
     val displayName: String,
+
     val countryName: String,
+
     val matches: List<MatchModel>
 )
+
+
+/*
+ * ============================================================
+ * LIVE SCREEN
+ * ============================================================
+ */
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LiveScreen(
+
     matches: List<MatchModel>,
+
     favoriteTeamIds: Set<Long>,
+
     onToggleTeamFavorite: (Long) -> Unit,
+
     isRefreshing: Boolean = false,
+
     onRefresh: () -> Unit = {},
+
     onMatchClick: (MatchModel) -> Unit
+
 ) {
 
     /*
-     * ============================================================
+     * ========================================================
      * BAJNOKSÁGOK NYITOTT / ZÁRT ÁLLAPOTA
-     * ============================================================
+     *
+     * FONTOS:
+     *
+     * Nem használunk rememberSaveable/mapSaver megoldást.
+     *
+     * Ez okozta a korábbi:
+     *
+     * Type mismatch:
+     * inferred type is Any? but Boolean was expected
+     *
+     * hibát.
+     * ========================================================
      */
 
     val collapsedLeagues =
-        rememberSaveable(
-            saver =
-                androidx.compose.runtime.saveable
-                    .mapSaver(
-                        save = {
-                            it.toMap()
-                        },
-                        restore = {
-                            mutableMapOf<String, Boolean>()
-                                .apply {
-                                    putAll(
-                                        it.mapKeys { entry ->
-                                            entry.key.toString()
-                                        }
-                                    )
-                                }
-                        }
-                    )
-        ) {
+        remember {
+
             mutableStateMapOf<String, Boolean>()
+
         }
 
+
     /*
-     * ============================================================
+     * ========================================================
      * CSAK ÉLŐ MECCSEK
-     * ============================================================
+     * ========================================================
      */
 
     val liveMatches =
-        matches.filter {
-            it.isLive
+        matches.filter { match ->
+
+            match.isLive
+
         }
 
+
     /*
-     * ============================================================
+     * ========================================================
      * ÉLŐ MECCSEK SZÁMA
-     * ============================================================
+     * ========================================================
      */
 
     val liveCount =
         liveMatches.size
 
+
     /*
-     * ============================================================
+     * ========================================================
      * BAJNOKSÁGOK CSOPORTOSÍTÁSA
-     * ============================================================
+     * ========================================================
+     *
+     * Először bajnokság szerint csoportosítunk.
+     *
+     * Utána:
+     *
+     * 1. normál bajnokságok
+     * 2. Friendlies legalul
+     *
+     * Normál bajnokságoknál:
+     *
+     * ország ABC
+     * majd bajnokság ABC
+     *
+     * ========================================================
      */
 
     val grouped =
         liveMatches
 
             .groupBy { match ->
-                liveLeagueKey(
-                    match
-                )
+
+                liveLeagueKey(match)
+
             }
 
-            .map { (key, list) ->
+            .map { (key, leagueMatches) ->
 
-                val first =
-                    list.firstOrNull()
+                val firstMatch =
+                    leagueMatches.firstOrNull()
 
                 val displayName =
-                    first
+                    firstMatch
                         ?.leagueDisplayName
+                        ?.takeIf {
+                            it.isNotBlank()
+                        }
                         ?: "Egyéb mérkőzések"
 
                 LiveLeagueGroup(
@@ -148,7 +219,7 @@ fun LiveScreen(
                         ),
 
                     matches =
-                        list.sortedWith(
+                        leagueMatches.sortedWith(
 
                             compareBy<MatchModel> {
 
@@ -160,26 +231,20 @@ fun LiveScreen(
                             }.thenBy {
 
                                 it.id
+
                             }
+
                         )
                 )
             }
 
-            /*
-             * =====================================================
-             * VÉGLEGES RENDEZÉS
-             *
-             * 0 = normál bajnokság
-             * 1 = Friendly
-             *
-             * Ez garantálja, hogy a barátságos
-             * mérkőzések mindig legalul legyenek.
-             * =====================================================
-             */
-
             .sortedWith(
 
                 compareBy<LiveLeagueGroup> {
+
+                    /*
+                     * Friendlies mindig utolsó.
+                     */
 
                     if (
                         isLiveFriendly(
@@ -193,22 +258,34 @@ fun LiveScreen(
 
                 }.thenBy {
 
+                    /*
+                     * ORSZÁG ABC
+                     */
+
                     normalizeLiveSort(
                         it.countryName
                     )
 
                 }.thenBy {
 
+                    /*
+                     * BAJNOKSÁG ABC
+                     */
+
                     normalizeLiveSort(
-                        it.displayName
+                        leagueNameOnly(
+                            it.displayName
+                        )
                     )
+
                 }
             )
 
+
     /*
-     * ============================================================
-     * UI
-     * ============================================================
+     * ========================================================
+     * KÉPERNYŐ
+     * ========================================================
      */
 
     Scaffold(
@@ -223,7 +300,12 @@ fun LiveScreen(
 
                         verticalAlignment =
                             Alignment.CenterVertically
+
                     ) {
+
+                        /*
+                         * ZÖLD ÉLŐ PONT
+                         */
 
                         Box(
 
@@ -236,50 +318,77 @@ fun LiveScreen(
                                     .background(
                                         AccentGreen
                                     )
+
                         )
 
                         Spacer(
                             modifier =
-                                Modifier.width(8.dp)
+                                Modifier.width(
+                                    8.dp
+                                )
                         )
+
+
+                        /*
+                         * CÍM
+                         */
 
                         Text(
 
                             text =
                                 "Élő mérkőzések",
 
-                            fontSize = 19.sp,
+                            fontSize =
+                                19.sp,
 
                             fontWeight =
-                                FontWeight.Bold
+                                FontWeight.Bold,
+
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurface
+
                         )
+
 
                         Spacer(
                             modifier =
-                                Modifier.width(8.dp)
+                                Modifier.width(
+                                    9.dp
+                                )
                         )
+
+
+                        /*
+                         * ÉLŐ DARABSZÁM
+                         */
 
                         Text(
 
                             text =
                                 "($liveCount)",
 
-                            fontSize = 14.sp,
+                            fontSize =
+                                14.sp,
 
                             fontWeight =
                                 FontWeight.Bold,
 
                             color =
                                 AccentGreen
+
                         )
                     }
                 },
 
+
+                /*
+                 * FRISSÍTÉS
+                 */
+
                 actions = {
 
-                    /*
-                     * FRISSÍTÉS
-                     */
                     Text(
 
                         text =
@@ -289,7 +398,8 @@ fun LiveScreen(
                                 "↻"
                             },
 
-                        fontSize = 22.sp,
+                        fontSize =
+                            23.sp,
 
                         color =
                             AccentGreen,
@@ -297,16 +407,20 @@ fun LiveScreen(
                         modifier =
                             Modifier
                                 .padding(
-                                    end = 14.dp
+                                    end = 16.dp
                                 )
                                 .clickable(
                                     enabled =
                                         !isRefreshing
                                 ) {
+
                                     onRefresh()
+
                                 }
+
                     )
                 },
+
 
                 colors =
                     TopAppBarDefaults
@@ -321,11 +435,19 @@ fun LiveScreen(
                                 MaterialTheme
                                     .colorScheme
                                     .onSurface
+
                         )
             )
         }
 
     ) { paddingValues ->
+
+
+        /*
+         * ====================================================
+         * NINCS ÉLŐ MECCS
+         * ====================================================
+         */
 
         if (liveMatches.isEmpty()) {
 
@@ -340,17 +462,24 @@ fun LiveScreen(
 
                 contentAlignment =
                     Alignment.Center
+
             ) {
 
                 Column(
 
                     horizontalAlignment =
                         Alignment.CenterHorizontally
+
                 ) {
 
                     Text(
-                        text = "⚽",
-                        fontSize = 42.sp
+
+                        text =
+                            "⚽",
+
+                        fontSize =
+                            42.sp
+
                     )
 
                     Spacer(
@@ -365,7 +494,8 @@ fun LiveScreen(
                         text =
                             "Jelenleg nincs élő mérkőzés",
 
-                        fontSize = 15.sp,
+                        fontSize =
+                            15.sp,
 
                         fontWeight =
                             FontWeight.Medium,
@@ -374,180 +504,285 @@ fun LiveScreen(
                             MaterialTheme
                                 .colorScheme
                                 .onSurfaceVariant
+
                     )
                 }
             }
 
-            return@Scaffold
-        }
+        } else {
 
-        LazyColumn(
 
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(
-                        paddingValues
+            /*
+             * =================================================
+             * ÉLŐ LISTA
+             * =================================================
+             */
+
+            LazyColumn(
+
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(
+                            paddingValues
+                        )
+                        .background(
+                            MaterialTheme
+                                .colorScheme
+                                .background
+                        ),
+
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        1.dp
                     )
-                    .background(
-                        MaterialTheme
-                            .colorScheme
-                            .background
-                    ),
 
-            verticalArrangement =
-                Arrangement.spacedBy(
-                    1.dp
-                )
-        ) {
+            ) {
 
-            grouped.forEach { group ->
-
-                val first =
-                    group.matches.firstOrNull()
-
-                val isCollapsed =
-                    collapsedLeagues[
-                        group.key
-                    ] == true
 
                 /*
                  * =================================================
-                 * BAJNOKSÁG FEJLÉC
+                 * BAJNOKSÁGOK
                  * =================================================
                  */
 
-                item(
-                    key =
-                        "live_league_${group.key}"
-                ) {
+                grouped.forEach { group ->
 
-                    LiveLeagueHeader(
+                    val firstMatch =
+                        group.matches
+                            .firstOrNull()
 
-                        leagueDisplayName =
-                            group.displayName,
 
-                        countryLogo =
-                            first
-                                ?.country
-                                ?.logo,
+                    /*
+                     * =================================================
+                     * BAJNOKSÁG NYITOTT / ZÁRT
+                     * =================================================
+                     */
 
-                        leagueLogo =
-                            first
-                                ?.league
-                                ?.logo,
+                    val isCollapsed =
+                        collapsedLeagues[
+                            group.key
+                        ] == true
 
-                        matchCount =
-                            group.matches.size,
 
-                        collapsed =
-                            isCollapsed,
+                    /*
+                     * =================================================
+                     * BAJNOKSÁG FEJLÉC
+                     * =================================================
+                     */
 
-                        onToggleCollapsed = {
+                    item(
 
-                            collapsedLeagues[
-                                group.key
-                            ] =
-                                !isCollapsed
-                        }
-                    )
-                }
+                        key =
+                            "live_league_${group.key}"
 
-                /*
-                 * =================================================
-                 * BAJNOKSÁG MECCSEI
-                 * =================================================
-                 */
+                    ) {
 
-                if (!isCollapsed) {
+                        LiveLeagueHeader(
 
-                    items(
+                            leagueDisplayName =
+                                group.displayName,
 
-                        items =
-                            group.matches,
+                            countryLogo =
+                                firstMatch
+                                    ?.country
+                                    ?.logo,
 
-                        key = { match ->
+                            leagueLogo =
+                                firstMatch
+                                    ?.league
+                                    ?.logo,
 
-                            "live_match_${match.id}"
-                        }
+                            matchCount =
+                                group.matches.size,
 
-                    ) { match ->
+                            collapsed =
+                                isCollapsed,
 
-                        MatchCard(
+                            onToggleCollapsed = {
 
-                            match =
-                                match,
+                                collapsedLeagues[
+                                    group.key
+                                ] =
+                                    !isCollapsed
 
-                            isHomeFavorite =
-                                match.homeTeam?.id != null &&
-                                    favoriteTeamIds
-                                        .contains(
-                                            match.homeTeam.id
-                                        ),
-
-                            isAwayFavorite =
-                                match.awayTeam?.id != null &&
-                                    favoriteTeamIds
-                                        .contains(
-                                            match.awayTeam.id
-                                        ),
-
-                            onToggleHomeFavorite = {
-
-                                match.homeTeam
-                                    ?.id
-                                    ?.let(
-                                        onToggleTeamFavorite
-                                    )
-                            },
-
-                            onToggleAwayFavorite = {
-
-                                match.awayTeam
-                                    ?.id
-                                    ?.let(
-                                        onToggleTeamFavorite
-                                    )
-                            },
-
-                            onClick = {
-
-                                onMatchClick(
-                                    match
-                                )
                             }
                         )
                     }
+
+
+                    /*
+                     * =================================================
+                     * MECCSEK
+                     *
+                     * Csak akkor jelennek meg,
+                     * ha a bajnokság nyitva van.
+                     * =================================================
+                     */
+
+                    if (!isCollapsed) {
+
+                        items(
+
+                            items =
+                                group.matches,
+
+                            key = { match ->
+
+                                "live_match_${match.id}"
+
+                            }
+
+                        ) { match ->
+
+
+                            /*
+                             * =================================================
+                             * MECCSKÁRTYA
+                             * =================================================
+                             */
+
+                            MatchCard(
+
+                                match =
+                                    match,
+
+
+                                /*
+                                 * HAZAI KEDVENC
+                                 */
+
+                                isHomeFavorite =
+                                    match
+                                        .homeTeam
+                                        ?.id
+                                        ?.let { id ->
+
+                                            favoriteTeamIds
+                                                .contains(id)
+
+                                        }
+                                        ?: false,
+
+
+                                /*
+                                 * VENDÉG KEDVENC
+                                 */
+
+                                isAwayFavorite =
+                                    match
+                                        .awayTeam
+                                        ?.id
+                                        ?.let { id ->
+
+                                            favoriteTeamIds
+                                                .contains(id)
+
+                                        }
+                                        ?: false,
+
+
+                                /*
+                                 * HAZAI KEDVENC KAPCSOLÁSA
+                                 */
+
+                                onToggleHomeFavorite = {
+
+                                    match
+                                        .homeTeam
+                                        ?.id
+                                        ?.let(
+                                            onToggleTeamFavorite
+                                        )
+
+                                },
+
+
+                                /*
+                                 * VENDÉG KEDVENC KAPCSOLÁSA
+                                 */
+
+                                onToggleAwayFavorite = {
+
+                                    match
+                                        .awayTeam
+                                        ?.id
+                                        ?.let(
+                                            onToggleTeamFavorite
+                                        )
+
+                                },
+
+
+                                /*
+                                 * MECCS RÉSZLETEK
+                                 */
+
+                                onClick = {
+
+                                    onMatchClick(
+                                        match
+                                    )
+
+                                }
+                            )
+                        }
+                    }
                 }
-            }
 
-            item {
 
-                Spacer(
-                    modifier =
-                        Modifier.height(
-                            20.dp
-                        )
-                )
+                /*
+                 * =================================================
+                 * ALSÓ TÉRKÖZ
+                 * =================================================
+                 */
+
+                item {
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(
+                                20.dp
+                            )
+                    )
+                }
             }
         }
     }
 }
 
+
 /*
  * ============================================================
  * ÉLŐ BAJNOKSÁG FEJLÉC
+ * ============================================================
+ *
+ * Példa:
+ *
+ * ▼ 🇫🇷 Franciaország · Ligue 2       9
+ *
+ * vagy becsukva:
+ *
+ * ▶ 🇫🇷 Franciaország · Ligue 2       9
+ *
  * ============================================================
  */
 
 @Composable
 private fun LiveLeagueHeader(
+
     leagueDisplayName: String,
+
     countryLogo: String?,
+
     leagueLogo: String?,
+
     matchCount: Int,
+
     collapsed: Boolean,
+
     onToggleCollapsed: () -> Unit
+
 ) {
 
     Row(
@@ -562,11 +797,16 @@ private fun LiveLeagueHeader(
 
         verticalAlignment =
             Alignment.CenterVertically
+
     ) {
 
+
         /*
-         * NYITÁS / ZÁRÁS
+         * ========================================================
+         * NYITÁS / ZÁRÁS GOMB
+         * ========================================================
          */
+
         Box(
 
             modifier =
@@ -578,11 +818,14 @@ private fun LiveLeagueHeader(
                         )
                     )
                     .clickable {
+
                         onToggleCollapsed()
+
                     },
 
             contentAlignment =
                 Alignment.Center
+
         ) {
 
             Text(
@@ -594,18 +837,27 @@ private fun LiveLeagueHeader(
                         "▼"
                     },
 
-                fontSize = 11.sp,
+                fontSize =
+                    11.sp,
+
+                fontWeight =
+                    FontWeight.Bold,
 
                 color =
                     MaterialTheme
                         .colorScheme
                         .onSurfaceVariant
+
             )
         }
 
+
         /*
+         * ========================================================
          * ORSZÁG LOGÓ
+         * ========================================================
          */
+
         if (
             !countryLogo.isNullOrBlank()
         ) {
@@ -620,26 +872,33 @@ private fun LiveLeagueHeader(
 
                 modifier =
                     Modifier
-                        .size(17.dp)
+                        .size(18.dp)
                         .clip(
                             RoundedCornerShape(
-                                2.dp
+                                3.dp
                             )
                         ),
 
                 contentScale =
                     ContentScale.Fit
+
             )
 
             Spacer(
                 modifier =
-                    Modifier.width(6.dp)
+                    Modifier.width(
+                        6.dp
+                    )
             )
         }
 
+
         /*
+         * ========================================================
          * BAJNOKSÁG LOGÓ
+         * ========================================================
          */
+
         if (
             !leagueLogo.isNullOrBlank()
         ) {
@@ -661,25 +920,35 @@ private fun LiveLeagueHeader(
 
                 contentScale =
                     ContentScale.Fit
+
             )
 
             Spacer(
                 modifier =
-                    Modifier.width(8.dp)
+                    Modifier.width(
+                        8.dp
+                    )
             )
         }
 
+
         /*
+         * ========================================================
          * BAJNOKSÁG NEVE
+         * ========================================================
          */
+
         Column(
 
             modifier =
                 Modifier
                     .weight(1f)
                     .clickable {
+
                         onToggleCollapsed()
+
                     }
+
         ) {
 
             Text(
@@ -687,7 +956,8 @@ private fun LiveLeagueHeader(
                 text =
                     leagueDisplayName,
 
-                fontSize = 13.sp,
+                fontSize =
+                    13.sp,
 
                 fontWeight =
                     FontWeight.Bold,
@@ -697,10 +967,12 @@ private fun LiveLeagueHeader(
                         .colorScheme
                         .onSurfaceVariant,
 
-                maxLines = 1,
+                maxLines =
+                    1,
 
                 overflow =
                     TextOverflow.Ellipsis
+
             )
 
             Text(
@@ -708,7 +980,8 @@ private fun LiveLeagueHeader(
                 text =
                     "$matchCount meccs",
 
-                fontSize = 10.sp,
+                fontSize =
+                    10.sp,
 
                 color =
                     MaterialTheme
@@ -718,12 +991,45 @@ private fun LiveLeagueHeader(
                             alpha =
                                 0.75f
                         )
+
             )
         }
 
+
         /*
-         * Kinyitott / becsukott állapot
+         * ========================================================
+         * MECCSSZÁM
+         * ========================================================
          */
+
+        Text(
+
+            text =
+                matchCount.toString(),
+
+            fontSize =
+                13.sp,
+
+            fontWeight =
+                FontWeight.Bold,
+
+            color =
+                AccentGreen,
+
+            modifier =
+                Modifier.padding(
+                    start = 6.dp
+                )
+
+        )
+
+
+        /*
+         * ========================================================
+         * JOBB OLDALI NYÍL
+         * ========================================================
+         */
+
         Text(
 
             text =
@@ -733,23 +1039,27 @@ private fun LiveLeagueHeader(
                     "▼"
                 },
 
-            fontSize = 12.sp,
+            fontSize =
+                10.sp,
 
             color =
-                AccentGreen,
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant,
 
             modifier =
-                Modifier
-                    .padding(
-                        start = 8.dp
-                    )
+                Modifier.padding(
+                    start = 7.dp
+                )
+
         )
     }
 }
 
+
 /*
  * ============================================================
- * BAJNOKSÁG ID
+ * BAJNOKSÁG AZONOSÍTÓ
  * ============================================================
  */
 
@@ -757,15 +1067,34 @@ private fun liveLeagueKey(
     match: MatchModel
 ): String {
 
-    return match.league
+    return match
+        .league
         ?.id
         ?.toString()
-        ?: "${match.country?.code.orEmpty()}_${match.leagueDisplayName}"
+        ?: run {
+
+            val countryCode =
+                match
+                    .country
+                    ?.code
+                    .orEmpty()
+
+            "${countryCode}_${match.leagueDisplayName}"
+        }
 }
+
 
 /*
  * ============================================================
- * ORSZÁG KINYERÉSE
+ * ORSZÁGNÉV KINYERÉSE
+ * ============================================================
+ *
+ * Például:
+ *
+ * "Franciaország · Ligue 2"
+ *
+ * -> "Franciaország"
+ *
  * ============================================================
  */
 
@@ -773,62 +1102,149 @@ private fun extractLiveCountry(
     leagueDisplayName: String
 ): String {
 
-    val separator =
+    val separatorIndex =
         leagueDisplayName.indexOf("·")
 
-    if (separator > 0) {
+    if (separatorIndex > 0) {
 
         return leagueDisplayName
             .substring(
                 0,
-                separator
+                separatorIndex
             )
             .trim()
     }
 
+
+    /*
+     * Ha nincs "·", akkor próbáljuk
+     * meg a kötőjelet.
+     */
+
+    val dashIndex =
+        leagueDisplayName.indexOf(" - ")
+
+    if (dashIndex > 0) {
+
+        return leagueDisplayName
+            .substring(
+                0,
+                dashIndex
+            )
+            .trim()
+    }
+
+
+    /*
+     * Ha nincs ország + liga formátum,
+     * akkor egyébként kezeljük.
+     */
+
     return "Egyéb"
 }
 
+
 /*
  * ============================================================
- * FRIENDLY
+ * CSAK A BAJNOKSÁG NEVE
+ * ============================================================
+ *
+ * "Franciaország · Ligue 2"
+ *
+ * ->
+ *
+ * "Ligue 2"
+ *
+ * ============================================================
+ */
+
+private fun leagueNameOnly(
+    leagueDisplayName: String
+): String {
+
+    val separatorIndex =
+        leagueDisplayName.indexOf("·")
+
+    if (separatorIndex >= 0) {
+
+        return leagueDisplayName
+            .substring(
+                separatorIndex + 1
+            )
+            .trim()
+    }
+
+    return leagueDisplayName.trim()
+}
+
+
+/*
+ * ============================================================
+ * FRIENDLIES / BARÁTSÁGOS
+ * ============================================================
+ *
+ * Ezek minden esetben a lista végére kerülnek.
+ *
  * ============================================================
  */
 
 private fun isLiveFriendly(
-    name: String
+    leagueName: String
 ): Boolean {
 
     val value =
-        name
+        leagueName
             .trim()
             .lowercase(
                 Locale.ROOT
             )
 
+
     return value.contains(
         "friendly"
     ) ||
+
         value.contains(
             "friendlies"
         ) ||
+
         value.contains(
-            "barátságos"
+            "club friendly"
         ) ||
-        value.contains(
-            "baratsagos"
-        ) ||
+
         value.contains(
             "club friendlies"
         ) ||
+
+        value.contains(
+            "international friendly"
+        ) ||
+
         value.contains(
             "international friendlies"
+        ) ||
+
+        value.contains(
+            "barátságos"
+        ) ||
+
+        value.contains(
+            "baratsagos"
         )
 }
+
 
 /*
  * ============================================================
  * ABC RENDEZÉS
+ * ============================================================
+ *
+ * Magyar ékezetek normalizálása azért,
+ * hogy például:
+ *
+ * É
+ *
+ * ne kerüljön teljesen más helyre.
  * ============================================================
  */
 
@@ -879,9 +1295,10 @@ private fun normalizeLiveSort(
         )
 }
 
+
 /*
  * ============================================================
- * DÁTUM
+ * MECCS DÁTUM PARSOLÁSA
  * ============================================================
  */
 
@@ -895,21 +1312,41 @@ private fun parseLiveDate(
         return null
     }
 
+
     val patterns =
         listOf(
 
+            /*
+             * ISO + timezone
+             */
             "yyyy-MM-dd'T'HH:mm:ssXXX",
 
+            /*
+             * ISO + millis + timezone
+             */
             "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
 
+            /*
+             * UTC Z
+             */
             "yyyy-MM-dd'T'HH:mm:ss'Z'",
 
+            /*
+             * UTC Z + millis
+             */
             "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
 
+            /*
+             * timezone nélküli
+             */
             "yyyy-MM-dd'T'HH:mm:ss"
+
         )
 
-    for (pattern in patterns) {
+
+    for (
+        pattern in patterns
+    ) {
 
         try {
 
@@ -918,6 +1355,11 @@ private fun parseLiveDate(
                     pattern,
                     Locale.US
                 )
+
+
+            /*
+             * Z formátum esetén UTC.
+             */
 
             if (
                 pattern.contains(
@@ -931,16 +1373,31 @@ private fun parseLiveDate(
                     )
             }
 
-            return formatter.parse(
-                value
-            )
+
+            val parsed =
+                formatter.parse(
+                    value
+                )
+
+
+            if (parsed != null) {
+
+                return parsed
+
+            }
 
         } catch (
             _: ParseException
         ) {
-            // következő formátum
+
+            /*
+             * Próbáljuk a következő
+             * dátumformátumot.
+             */
+
         }
     }
+
 
     return null
 }
