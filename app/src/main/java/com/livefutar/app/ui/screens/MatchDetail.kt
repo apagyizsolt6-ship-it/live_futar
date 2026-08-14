@@ -25,6 +25,7 @@ import coil.compose.AsyncImage
 import com.livefutar.app.data.ApiKeyManager
 import com.livefutar.app.data.BetSlipManager
 import com.livefutar.app.data.FootballApiService
+import com.livefutar.app.data.HalfTimeScoreCache
 import com.livefutar.app.model.*
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
@@ -242,7 +243,7 @@ fun MatchDetailScreen(
                 )
         ) {
 
-            MatchScoreHeader(match)
+            MatchScoreHeader(match, halfTimeScore = HalfTimeScoreCache.get(match.id))
 
             ScrollableTabRow(
                 selectedTabIndex =
@@ -315,8 +316,7 @@ fun MatchDetailScreen(
                 when (selectedTab) {
 
                     DetailTab.OVERVIEW ->
-                        OverviewTab(events)
-
+                        OverviewTab(events, match)
                     DetailTab.STATS ->
                         StatsTab(statistics)
 
@@ -526,6 +526,171 @@ private fun MatchScoreHeader(
             ) {
 
                 Spacer(
+
+@Composable
+private fun MatchScoreHeader(
+    match: MatchModel,
+    halfTimeScore: String? = null
+) {
+    val borderColor =
+        if (match.isLive) {
+            AccentGreen.copy(alpha = 0.55f)
+        } else {
+            MaterialTheme
+                .colorScheme
+                .outline
+                .copy(alpha = 0.3f)
+        }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp)
+            .border(
+                1.5.dp,
+                borderColor,
+                RoundedCornerShape(16.dp)
+            ),
+
+        shape = RoundedCornerShape(16.dp),
+
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    MaterialTheme.colorScheme.surface
+            )
+    ) {
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+
+            horizontalAlignment =
+                Alignment.CenterHorizontally
+        ) {
+
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+
+                if (match.isLive) {
+
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(AccentGreen)
+                    )
+
+                    Spacer(
+                        modifier = Modifier.width(6.dp)
+                    )
+                }
+
+                Text(
+                    text =
+                        if (match.isLive) {
+                            "ELO " +
+                                (match.liveMinuteLabel ?: "")
+                        } else {
+                            match.statusLabel
+                        },
+
+                    fontSize = 13.sp,
+
+                    fontWeight =
+                        FontWeight.Bold,
+
+                    color =
+                        if (match.isLive) {
+                            AccentGreen
+                        } else {
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                        }
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(14.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+
+                TeamBlock(
+                    team = match.homeTeam,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Column(
+                    horizontalAlignment =
+                        Alignment.CenterHorizontally,
+
+                    modifier =
+                        Modifier.padding(
+                            horizontal = 8.dp
+                        )
+                ) {
+
+                    Text(
+                        text =
+                            if (match.hasScore) {
+                                match.homeScoreDisplay +
+                                    " : " +
+                                    match.awayScoreDisplay
+                            } else {
+                                "-"
+                            },
+
+                        fontSize = 28.sp,
+
+                        fontWeight =
+                            FontWeight.Bold,
+
+                        color =
+                            if (match.isLive) {
+                                AccentGreen
+                            } else {
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurface
+                            }
+                    )
+
+                    if (
+                        !match.isLive &&
+                        !match.isFinished
+                    ) {
+                        Text(
+                            text = match.kickoffTime,
+                            fontSize = 13.sp,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .primary
+                        )
+                    }
+                }
+
+                TeamBlock(
+                    team = match.awayTeam,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            if (
+                match.isLive ||
+                match.isFinished
+            ) {
+
+                Spacer(
                     modifier = Modifier.height(10.dp)
                 )
 
@@ -554,6 +719,16 @@ private fun MatchScoreHeader(
                             MaterialTheme
                                 .colorScheme
                                 .onSurfaceVariant
+                    )
+                }
+
+                if (!halfTimeScore.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Félidő: $halfTimeScore",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -623,7 +798,8 @@ private fun TeamBlock(
 
 @Composable
 private fun OverviewTab(
-    events: List<MatchEventModel>
+    events: List<MatchEventModel>,
+    match: MatchModel
 ) {
     Column(
         modifier = Modifier
@@ -633,6 +809,32 @@ private fun OverviewTab(
             )
             .padding(16.dp)
     ) {
+
+        val yellowHome = events.count { it.type == "Yellow Card" && it.team?.id == match.homeTeam?.id }
+        val yellowAway = events.count { it.type == "Yellow Card" && it.team?.id == match.awayTeam?.id }
+        val redHome = events.count { it.type == "Red Card" && it.team?.id == match.homeTeam?.id }
+        val redAway = events.count { it.type == "Red Card" && it.team?.id == match.awayTeam?.id }
+
+        if (yellowHome + yellowAway + redHome + redAway > 0) {
+            Text(
+                text = "Lapok",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            CardsSummaryRow(
+                label = "🟨 Sárga",
+                homeValue = yellowHome,
+                awayValue = yellowAway
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            CardsSummaryRow(
+                label = "🟥 Piros",
+                homeValue = redHome,
+                awayValue = redAway
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+        }
 
         Text(
             text = "Esemenyek",
@@ -673,6 +875,41 @@ private fun OverviewTab(
     }
 }
 
+@Composable
+private fun CardsSummaryRow(
+    label: String,
+    homeValue: Int,
+    awayValue: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = homeValue.toString(),
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp
+        )
+        Text(
+            text = label,
+            modifier = Modifier.weight(1.4f),
+            textAlign = TextAlign.Center,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = awayValue.toString(),
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Start,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp
+        )
+    }
+}
 @Composable
 private fun EventRow(
     ev: MatchEventModel
