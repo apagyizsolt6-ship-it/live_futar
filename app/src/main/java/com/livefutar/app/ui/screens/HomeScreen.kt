@@ -869,18 +869,20 @@ private fun FilterHeader(
 /*
  * SZŰRŐPANEL
  */
+/*
+ * SZŰRŐPANEL
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterPanel(
     timeFilter: MatchTimeFilter,
-    onTimeFilterSelected:
-        (MatchTimeFilter) -> Unit,
+    onTimeFilterSelected: (MatchTimeFilter) -> Unit,
     showOnlyLive: Boolean,
     onToggleLive: () -> Unit,
     showOnlyFavorites: Boolean,
     onToggleFavorites: () -> Unit,
     onClear: () -> Unit
 ) {
-
     Column(
 
         modifier = Modifier
