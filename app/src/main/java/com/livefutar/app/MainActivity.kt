@@ -48,6 +48,73 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 private const val AUTO_REFRESH_INTERVAL_MS = 60_000L
+private const val MATCH_PAGE_SIZE = 100
+private const val MAX_MATCH_PAGES = 20
+
+/**
+ * A teljes napi meccslista lekérése lapozással.
+ *
+ * A Highlightly /matches végpont egyszerre legfeljebb 100
+ * mérkőzést ad vissza. A korábbi kód csak az első oldalt
+ * kérte le, ezért sok élő mérkőzés kieshetett.
+ */
+suspend fun fetchAllMatches(
+    apiService: FootballApiService,
+    apiKey: String,
+    date: String
+): List<MatchModel> {
+
+    val allMatches = mutableListOf<MatchModel>()
+    var offset = 0
+    var page = 0
+    var totalCount: Int? = null
+
+    while (page < MAX_MATCH_PAGES) {
+
+        val response =
+            apiService.getMatches(
+                apiKey = apiKey,
+                date = date,
+                timezone = "Europe/Budapest",
+                limit = MATCH_PAGE_SIZE,
+                offset = offset
+            )
+
+        val pageMatches =
+            response.data.orEmpty()
+
+        if (totalCount == null) {
+            totalCount =
+                response.pagination?.totalCount
+        }
+
+        allMatches += pageMatches
+
+        if (pageMatches.isEmpty()) {
+            break
+        }
+
+        val nextOffset =
+            offset + pageMatches.size
+
+        val reachedTotal =
+            totalCount != null &&
+                nextOffset >= totalCount!!
+
+        val lastPage =
+            pageMatches.size < MATCH_PAGE_SIZE
+
+        if (reachedTotal || lastPage) {
+            break
+        }
+
+        offset = nextOffset
+        page++
+    }
+
+    return allMatches
+        .distinctBy { it.id }
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -420,13 +487,11 @@ class MainActivity : ComponentActivity() {
                              * napot ÉS a mai napot.
                              */
                             val newMatches =
-                                apiService
-                                    .getMatches(
-                                        apiKey,
-                                        requestedDate
-                                    )
-                                    .data
-                                    ?: emptyList()
+                                fetchAllMatches(
+                                    apiService = apiService,
+                                    apiKey = apiKey,
+                                    date = requestedDate
+                                )
 
                             /*
                              * Highlights továbbra is ugyanahhoz
