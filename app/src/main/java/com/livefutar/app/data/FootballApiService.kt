@@ -20,13 +20,15 @@ interface FootballApiService {
     @GET("matches")
     suspend fun getMatches(
         @Header("x-rapidapi-key") apiKey: String,
-        @Query("date") date: String
+        @Query("date") date: String,
+        @Query("timezone") timezone: String = "Europe/Budapest"
     ): ApiResponse<MatchModel>
 
     @GET("highlights")
     suspend fun getHighlights(
         @Header("x-rapidapi-key") apiKey: String,
-        @Query("date") date: String
+        @Query("date") date: String,
+        @Query("timezone") timezone: String = "Europe/Budapest"
     ): ApiResponse<HighlightModel>
 
     @GET("events/{id}")
@@ -49,7 +51,9 @@ interface FootballApiService {
         @Query("teamIdTwo") teamIdTwo: Long
     ): List<MatchModel>
 
-    /** Prematch / live odds – Highlightly */
+    /**
+     * Prematch / live odds – Highlightly
+     */
     @GET("odds")
     suspend fun getOdds(
         @Header("x-rapidapi-key") apiKey: String,
@@ -58,21 +62,27 @@ interface FootballApiService {
         @Query("limit") limit: Int = 5
     ): OddsApiResponse
 
-    /** Lineups – Ultra plan */
+    /**
+     * Lineups – Ultra plan
+     */
     @GET("lineups/{matchId}")
     suspend fun getLineups(
         @Header("x-rapidapi-key") apiKey: String,
         @Path("matchId") matchId: Long
     ): MatchLineups
 
-    /** Match statistics – Ultra plan */
+    /**
+     * Match statistics – Ultra plan
+     */
     @GET("statistics/{matchId}")
     suspend fun getMatchStatistics(
         @Header("x-rapidapi-key") apiKey: String,
         @Path("matchId") matchId: Long
     ): List<TeamStatistics>
 
-    /** Last 5 games forma */
+    /**
+     * Last 5 games forma
+     */
     @GET("last-five-games")
     suspend fun getLastFiveGames(
         @Header("x-rapidapi-key") apiKey: String,
