@@ -40,6 +40,13 @@ private data class LeagueGroup(
     val matches: List<MatchModel>
 )
 
+private enum class TimeWindowFilter(val hours: Int) {
+    NONE(0),
+    THREE(3),
+    SIX(6),
+    NINE(9)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -67,49 +74,17 @@ fun HomeScreen(
         mutableStateMapOf<String, Boolean>()
     }
 
-    /*
-     * Aktuális idő a közelgő mérkőzések
-     * időjelzéséhez.
-     */
-    val now = remember {
-        mutableStateOf(
-            System.currentTimeMillis()
-        )
+    var selectedTimeWindow by rememberSaveable {
+        mutableStateOf(TimeWindowFilter.NONE)
     }
 
     /*
-     * Az időjelzést időnként frissítjük.
+     * Alapból minden átadott mérkőzés megjelenik.
      *
-     * Ez NEM API-lekérés.
-     * Csak a képernyőn lévő 3h / 6h / 9h
-     * jelzések számítását frissíti.
-     */
-    LaunchedEffect(matches, selectedDate) {
-
-        while (true) {
-
-            now.value =
-                System.currentTimeMillis()
-
-            kotlinx.coroutines.delay(
-                60_000L
-            )
-        }
-    }
-
-    /*
-     * FONTOS:
-     *
-     * NINCS 3 / 6 / 9 ÓRÁS SZŰRÉS.
-     *
-     * Alapból minden átadott mérkőzés
-     * megjelenik.
-     *
-     * Csak:
-     * - kedvencek
-     * - élő
-     *
-     * szűrés maradt.
+     * A 3 / 6 / 9 órás gombok valódi, kattintható
+     * időablak-szűrők. Ezek a már lekért teljes napi
+     * listából dolgoznak, így nem fogyasztanak új API
+     * lekérést minden gombnyomásnál.
      */
     val filteredMatches = remember(
         matches,
@@ -117,7 +92,7 @@ fun HomeScreen(
         favoriteLeagueIds,
         showOnlyFavorites,
         showOnlyLive,
-        now.value
+        selectedTimeWindow
     ) {
 
         var result =
@@ -166,10 +141,32 @@ fun HomeScreen(
         }
 
         /*
-         * MINDEN MECCS MARAD.
+         * 3 / 6 / 9 ÓRÁS KATTINTHATÓ IDŐABLAK
          *
-         * Csak időrendbe rendezzük őket.
+         * Csak a még el nem kezdődött mérkőzéseket
+         * szűrjük az adott időablakra.
          */
+        if (selectedTimeWindow != TimeWindowFilter.NONE) {
+
+            val nowMillis = System.currentTimeMillis()
+            val untilMillis =
+                nowMillis +
+                    selectedTimeWindow.hours.toLong() *
+                    60L * 60L * 1000L
+
+            result = result.filter { match ->
+
+                if (!match.isNotStarted) {
+                    false
+                } else {
+                    val kickoff = match.kickoffMillis
+                    kickoff != null &&
+                        kickoff >= nowMillis &&
+                        kickoff <= untilMillis
+                }
+            }
+        }
+
         result.sortedWith(
 
             compareBy<MatchModel> {
@@ -484,6 +481,39 @@ fun HomeScreen(
             }
 
             /*
+             * ÉLŐ + 3 / 6 / 9 ÓRÁS KATTINTHATÓ LEKÉRÉSI NÉZETEK
+             */
+            item {
+
+                TimeWindowBar(
+
+                    liveSelected = showOnlyLive,
+
+                    timeWindow = selectedTimeWindow,
+
+                    liveCount = liveCount,
+
+                    onLiveClick = {
+                        selectedTimeWindow = TimeWindowFilter.NONE
+                        onToggleShowOnlyLive()
+                    },
+
+                    onTimeWindowClick = { window ->
+                        if (showOnlyLive) {
+                            onToggleShowOnlyLive()
+                        }
+
+                        selectedTimeWindow =
+                            if (selectedTimeWindow == window) {
+                                TimeWindowFilter.NONE
+                            } else {
+                                window
+                            }
+                    }
+                )
+            }
+
+            /*
              * DÁTUM
              */
             item {
@@ -526,7 +556,8 @@ fun HomeScreen(
                     activeCount =
                         activeFilterCount(
                             showOnlyLive,
-                            showOnlyFavorites
+                            showOnlyFavorites,
+                            selectedTimeWindow
                         ),
 
                     onClick = {
@@ -685,21 +716,6 @@ fun HomeScreen(
 
                         ) { match ->
 
-                            /*
-                             * KÖZELGŐ IDŐJELZÉS
-                             *
-                             * Ez nem szűri ki a meccset.
-                             */
-                            val timeBadge =
-                                upcomingTimeBadge(
-
-                                    match =
-                                        match,
-
-                                    nowMillis =
-                                        now.value
-                                )
-
                             Column(
 
                                 modifier =
@@ -707,41 +723,6 @@ fun HomeScreen(
                                         .fillMaxWidth()
                             ) {
 
-                                /*
-                                 * Kis időjelző.
-                                 */
-                                if (
-                                    timeBadge != null
-                                ) {
-
-                                    Row(
-
-                                        modifier =
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .padding(
-                                                    horizontal =
-                                                        18.dp,
-
-                                                    vertical =
-                                                        2.dp
-                                                ),
-
-                                        horizontalArrangement =
-                                            Arrangement.End
-                                    ) {
-
-                                        UpcomingTimeBadge(
-
-                                            label =
-                                                timeBadge
-                                        )
-                                    }
-                                }
-
-                                /*
-                                 * MECCSKÁRTYA
-                                 */
                                 MatchCard(
 
                                     match =
@@ -816,7 +797,8 @@ fun HomeScreen(
  */
 private fun activeFilterCount(
     showOnlyLive: Boolean,
-    showOnlyFavorites: Boolean
+    showOnlyFavorites: Boolean,
+    timeWindow: TimeWindowFilter
 ): Int {
 
     var count = 0
@@ -829,148 +811,11 @@ private fun activeFilterCount(
         count++
     }
 
+    if (timeWindow != TimeWindowFilter.NONE) {
+        count++
+    }
+
     return count
-}
-
-/*
- * KÖZELGŐ MECCS IDŐJELZŐ
- *
- * NEM szűri ki a mérkőzést.
- *
- * 0–3 óra:
- *     3h
- *
- * 3–6 óra:
- *     6h
- *
- * 6–9 óra:
- *     9h
- *
- * 9 órán túl:
- *     nincs jelzés
- *
- * Élő:
- *     nincs jelzés
- */
-private fun upcomingTimeBadge(
-    match: MatchModel,
-    nowMillis: Long
-): String? {
-
-    /*
-     * Élő vagy már elkezdődött mérkőzés.
-     */
-    if (!match.isNotStarted) {
-        return null
-    }
-
-    val kickoff =
-        parseMatchDate(
-            match.date
-        )?.time
-            ?: return null
-
-    val difference =
-        kickoff - nowMillis
-
-    /*
-     * Már elmúlt a kezdési idő.
-     */
-    if (difference < 0L) {
-        return null
-    }
-
-    val threeHours =
-        3L *
-            60L *
-            60L *
-            1000L
-
-    val sixHours =
-        6L *
-            60L *
-            60L *
-            1000L
-
-    val nineHours =
-        9L *
-            60L *
-            60L *
-            1000L
-
-    return when {
-
-        difference <= threeHours ->
-            "3h"
-
-        difference <= sixHours ->
-            "6h"
-
-        difference <= nineHours ->
-            "9h"
-
-        else ->
-            null
-    }
-}
-
-/*
- * KIS IDŐJELZŐ
- */
-@Composable
-private fun UpcomingTimeBadge(
-    label: String
-) {
-
-    Box(
-
-        modifier =
-            Modifier
-                .clip(
-                    RoundedCornerShape(8.dp)
-                )
-                .background(
-                    MaterialTheme
-                        .colorScheme
-                        .surfaceVariant
-                        .copy(
-                            alpha = 0.65f
-                        )
-                )
-                .border(
-                    1.dp,
-
-                    MaterialTheme
-                        .colorScheme
-                        .outline
-                        .copy(
-                            alpha = 0.35f
-                        ),
-
-                    RoundedCornerShape(8.dp)
-                )
-                .padding(
-                    horizontal = 7.dp,
-                    vertical = 3.dp
-                )
-    ) {
-
-        Text(
-
-            text =
-                "⏱ $label",
-
-            fontSize = 10.sp,
-
-            fontWeight =
-                FontWeight.Bold,
-
-            color =
-                MaterialTheme
-                    .colorScheme
-                    .onSurfaceVariant
-        )
-    }
 }
 
 /*
@@ -1046,6 +891,105 @@ private fun parseMatchDate(
     }
 
     return null
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeWindowBar(
+    liveSelected: Boolean,
+    timeWindow: TimeWindowFilter,
+    liveCount: Int,
+    onLiveClick: () -> Unit,
+    onTimeWindowClick: (TimeWindowFilter) -> Unit
+) {
+
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = 12.dp,
+                vertical = 6.dp
+            ),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 2.dp)
+    ) {
+
+        item {
+            FilterChip(
+                selected = liveSelected,
+                onClick = onLiveClick,
+                label = {
+                    Text(
+                        text = if (liveCount > 0) {
+                            "🔴 ÉLŐ $liveCount"
+                        } else {
+                            "🔴 ÉLŐ"
+                        },
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = AccentGreen.copy(alpha = 0.22f),
+                    selectedLabelColor = AccentGreen
+                )
+            )
+        }
+
+        item {
+            TimeWindowChip(
+                label = "⏱ <3h",
+                selected = timeWindow == TimeWindowFilter.THREE,
+                onClick = {
+                    onTimeWindowClick(TimeWindowFilter.THREE)
+                }
+            )
+        }
+
+        item {
+            TimeWindowChip(
+                label = "⏱ <6h",
+                selected = timeWindow == TimeWindowFilter.SIX,
+                onClick = {
+                    onTimeWindowClick(TimeWindowFilter.SIX)
+                }
+            )
+        }
+
+        item {
+            TimeWindowChip(
+                label = "⏱ <9h",
+                selected = timeWindow == TimeWindowFilter.NINE,
+                onClick = {
+                    onTimeWindowClick(TimeWindowFilter.NINE)
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeWindowChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Text(
+                text = label,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            )
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+            selectedLabelColor = MaterialTheme.colorScheme.primary
+        )
+    )
 }
 
 /*
