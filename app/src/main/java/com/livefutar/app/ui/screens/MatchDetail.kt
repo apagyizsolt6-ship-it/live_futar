@@ -317,6 +317,7 @@ fun MatchDetailScreen(
 
                     DetailTab.OVERVIEW ->
                         OverviewTab(events, match)
+
                     DetailTab.STATS ->
                         StatsTab(statistics)
 
@@ -362,170 +363,6 @@ fun MatchDetailScreen(
         }
     }
 }
-
-@Composable
-private fun MatchScoreHeader(
-    match: MatchModel
-) {
-    val borderColor =
-        if (match.isLive) {
-            AccentGreen.copy(alpha = 0.55f)
-        } else {
-            MaterialTheme
-                .colorScheme
-                .outline
-                .copy(alpha = 0.3f)
-        }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(12.dp)
-            .border(
-                1.5.dp,
-                borderColor,
-                RoundedCornerShape(16.dp)
-            ),
-
-        shape = RoundedCornerShape(16.dp),
-
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    MaterialTheme.colorScheme.surface
-            )
-    ) {
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-
-            horizontalAlignment =
-                Alignment.CenterHorizontally
-        ) {
-
-            Row(
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-
-                if (match.isLive) {
-
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(AccentGreen)
-                    )
-
-                    Spacer(
-                        modifier = Modifier.width(6.dp)
-                    )
-                }
-
-                Text(
-                    text =
-                        if (match.isLive) {
-                            "ELO " +
-                                (match.liveMinuteLabel ?: "")
-                        } else {
-                            match.statusLabel
-                        },
-
-                    fontSize = 13.sp,
-
-                    fontWeight =
-                        FontWeight.Bold,
-
-                    color =
-                        if (match.isLive) {
-                            AccentGreen
-                        } else {
-                            MaterialTheme
-                                .colorScheme
-                                .onSurfaceVariant
-                        }
-                )
-            }
-
-            Spacer(
-                modifier = Modifier.height(14.dp)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-
-                TeamBlock(
-                    team = match.homeTeam,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Column(
-                    horizontalAlignment =
-                        Alignment.CenterHorizontally,
-
-                    modifier =
-                        Modifier.padding(
-                            horizontal = 8.dp
-                        )
-                ) {
-
-                    Text(
-                        text =
-                            if (match.hasScore) {
-                                match.homeScoreDisplay +
-                                    " : " +
-                                    match.awayScoreDisplay
-                            } else {
-                                "-"
-                            },
-
-                        fontSize = 28.sp,
-
-                        fontWeight =
-                            FontWeight.Bold,
-
-                        color =
-                            if (match.isLive) {
-                                AccentGreen
-                            } else {
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurface
-                            }
-                    )
-
-                    if (
-                        !match.isLive &&
-                        !match.isFinished
-                    ) {
-                        Text(
-                            text = match.kickoffTime,
-                            fontSize = 13.sp,
-                            color =
-                                MaterialTheme
-                                    .colorScheme
-                                    .primary
-                        )
-                    }
-                }
-
-                TeamBlock(
-                    team = match.awayTeam,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            if (
-                match.isLive ||
-                match.isFinished
-            ) {
-
-                Spacer(
 
 @Composable
 private fun MatchScoreHeader(
@@ -910,6 +747,7 @@ private fun CardsSummaryRow(
         )
     }
 }
+
 @Composable
 private fun EventRow(
     ev: MatchEventModel
