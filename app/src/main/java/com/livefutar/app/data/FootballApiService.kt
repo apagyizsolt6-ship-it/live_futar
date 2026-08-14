@@ -21,7 +21,9 @@ interface FootballApiService {
     suspend fun getMatches(
         @Header("x-rapidapi-key") apiKey: String,
         @Query("date") date: String,
-        @Query("timezone") timezone: String = "Europe/Budapest"
+        @Query("timezone") timezone: String = "Europe/Budapest",
+        @Query("limit") limit: Int = 100,
+        @Query("offset") offset: Int = 0
     ): ApiResponse<MatchModel>
 
     @GET("highlights")
