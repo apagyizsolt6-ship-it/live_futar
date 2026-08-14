@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.livefutar.app.data.ApiKeyManager
 import com.livefutar.app.data.FavoritesManager
 import com.livefutar.app.data.FootballApiService
+import com.livefutar.app.data.HalfTimeScoreCache
 import com.livefutar.app.data.NotificationHelper
 import com.livefutar.app.data.PreferencesManager
 import com.livefutar.app.model.HighlightModel
@@ -158,6 +159,13 @@ class MainActivity : ComponentActivity() {
                             val newMatches = apiService.getMatches(apiKey, today).data ?: emptyList()
                             val newHighlights = apiService.getHighlights(apiKey, today).data ?: emptyList()
                             checkFavoriteMatchEvents(newMatches)
+                            // Az API nem ad vissza külön félidei eredményt, ezért amikor
+                            // egy meccs éppen félidőben van, elmentjük az akkori állást.
+                            newMatches.forEach { m ->
+                                if (m.state?.description == "Half time") {
+                                    HalfTimeScoreCache.set(m.id, m.state.score?.current)
+                                }
+                            }
                             matches = newMatches
                             highlights = newHighlights
                             previousMatchesById = newMatches.associateBy { it.id }
