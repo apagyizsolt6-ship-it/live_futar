@@ -68,7 +68,8 @@ fun HomeScreen(
     }
 
     /*
-     * Aktuális idő a közelgő mérkőzések kis jelzéséhez.
+     * Aktuális idő a közelgő mérkőzések
+     * időjelzéséhez.
      */
     val now = remember {
         mutableStateOf(
@@ -77,18 +78,32 @@ fun HomeScreen(
     }
 
     /*
-     * Minden új adatbetöltéskor frissítjük
-     * az időpont-számításhoz használt időt.
+     * Az időjelzést időnként frissítjük.
+     *
+     * Ez NEM API-lekérés.
+     * Csak a képernyőn lévő 3h / 6h / 9h
+     * jelzések számítását frissíti.
      */
     LaunchedEffect(matches, selectedDate) {
-        now.value =
-            System.currentTimeMillis()
+
+        while (true) {
+
+            now.value =
+                System.currentTimeMillis()
+
+            kotlinx.coroutines.delay(
+                60_000L
+            )
+        }
     }
 
     /*
+     * FONTOS:
+     *
      * NINCS 3 / 6 / 9 ÓRÁS SZŰRÉS.
      *
-     * Alapból minden mérkőzés megjelenik.
+     * Alapból minden átadott mérkőzés
+     * megjelenik.
      *
      * Csak:
      * - kedvencek
@@ -101,10 +116,12 @@ fun HomeScreen(
         favoriteTeamIds,
         favoriteLeagueIds,
         showOnlyFavorites,
-        showOnlyLive
+        showOnlyLive,
+        now.value
     ) {
 
-        var result = matches
+        var result =
+            matches
 
         /*
          * KEDVENCEK SZŰRÉSE
@@ -149,10 +166,9 @@ fun HomeScreen(
         }
 
         /*
-         * LEGKORÁBBI MECCSTŐL FELFELÉ.
+         * MINDEN MECCS MARAD.
          *
-         * FONTOS:
-         * itt már nincs 3 / 6 / 9 órás limit.
+         * Csak időrendbe rendezzük őket.
          */
         result.sortedWith(
 
@@ -225,7 +241,6 @@ fun HomeScreen(
                             parseMatchDate(
                                 match.date
                             )?.time
-
                         }
                         ?: Long.MAX_VALUE
 
@@ -250,8 +265,10 @@ fun HomeScreen(
 
                         Text(
                             text = "LIVE FUTÁR",
+
                             fontWeight =
                                 FontWeight.Bold,
+
                             fontSize = 18.sp
                         )
 
@@ -265,9 +282,6 @@ fun HomeScreen(
                             fontSize = 16.sp
                         )
 
-                        /*
-                         * Élő meccsek száma.
-                         */
                         if (liveCount > 0) {
 
                             Spacer(
@@ -276,7 +290,8 @@ fun HomeScreen(
                             )
 
                             LiveBadge(
-                                count = liveCount
+                                count =
+                                    liveCount
                             )
                         }
                     }
@@ -305,11 +320,14 @@ fun HomeScreen(
 
                         modifier =
                             Modifier
-                                .padding(end = 6.dp)
+                                .padding(
+                                    end = 6.dp
+                                )
                                 .clickable(
                                     enabled =
                                         !isRefreshing
                                 ) {
+
                                     onRefresh()
                                 }
                     )
@@ -368,7 +386,9 @@ fun HomeScreen(
 
                         modifier =
                             Modifier
-                                .padding(end = 4.dp)
+                                .padding(
+                                    end = 4.dp
+                                )
                     )
 
                     /*
@@ -387,8 +407,11 @@ fun HomeScreen(
 
                         color =
                             if (showOnlyFavorites) {
+
                                 AccentGold
+
                             } else {
+
                                 MaterialTheme
                                     .colorScheme
                                     .onSurfaceVariant
@@ -396,8 +419,11 @@ fun HomeScreen(
 
                         modifier =
                             Modifier
-                                .padding(end = 14.dp)
+                                .padding(
+                                    end = 14.dp
+                                )
                                 .clickable {
+
                                     onToggleShowOnlyFavorites()
                                 }
                     )
@@ -427,7 +453,9 @@ fun HomeScreen(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .padding(
+                        paddingValues
+                    )
                     .background(
                         MaterialTheme
                             .colorScheme
@@ -435,7 +463,9 @@ fun HomeScreen(
                     ),
 
             verticalArrangement =
-                Arrangement.spacedBy(1.dp)
+                Arrangement.spacedBy(
+                    1.dp
+                )
         ) {
 
             /*
@@ -509,9 +539,6 @@ fun HomeScreen(
 
             /*
              * LENYITHATÓ SZŰRŐPANEL
-             *
-             * Itt már nincs 3 / 6 / 9 órás
-             * szűrősor.
              */
             if (filtersExpanded) {
 
@@ -534,10 +561,12 @@ fun HomeScreen(
                         onClear = {
 
                             if (showOnlyLive) {
+
                                 onToggleShowOnlyLive()
                             }
 
                             if (showOnlyFavorites) {
+
                                 onToggleShowOnlyFavorites()
                             }
                         }
@@ -657,12 +686,13 @@ fun HomeScreen(
                         ) { match ->
 
                             /*
-                             * Közelgő időjelzés.
+                             * KÖZELGŐ IDŐJELZÉS
                              *
-                             * Ez NEM szűri ki a meccset.
+                             * Ez nem szűri ki a meccset.
                              */
                             val timeBadge =
                                 upcomingTimeBadge(
+
                                     match =
                                         match,
 
@@ -671,6 +701,7 @@ fun HomeScreen(
                                 )
 
                             Column(
+
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -678,9 +709,6 @@ fun HomeScreen(
 
                                 /*
                                  * Kis időjelző.
-                                 *
-                                 * Csak nem élő, még el nem
-                                 * kezdődött meccseknél.
                                  */
                                 if (
                                     timeBadge != null
@@ -704,6 +732,7 @@ fun HomeScreen(
                                     ) {
 
                                         UpcomingTimeBadge(
+
                                             label =
                                                 timeBadge
                                         )
@@ -711,7 +740,7 @@ fun HomeScreen(
                                 }
 
                                 /*
-                                 * A MECCSKÁRTYA
+                                 * MECCSKÁRTYA
                                  */
                                 MatchCard(
 
@@ -723,8 +752,7 @@ fun HomeScreen(
                                             ?.id != null &&
                                             favoriteTeamIds
                                                 .contains(
-                                                    match.homeTeam
-                                                        .id
+                                                    match.homeTeam.id
                                                 ),
 
                                     isAwayFavorite =
@@ -732,8 +760,7 @@ fun HomeScreen(
                                             ?.id != null &&
                                             favoriteTeamIds
                                                 .contains(
-                                                    match.awayTeam
-                                                        .id
+                                                    match.awayTeam.id
                                                 ),
 
                                     onToggleHomeFavorite = {
@@ -771,7 +798,9 @@ fun HomeScreen(
 
                 Spacer(
                     modifier =
-                        Modifier.height(18.dp)
+                        Modifier.height(
+                            18.dp
+                        )
                 )
             }
         }
@@ -781,7 +810,7 @@ fun HomeScreen(
 /*
  * AKTÍV SZŰRŐK SZÁMA
  *
- * Már csak:
+ * Csak:
  * - Élő
  * - Kedvencek
  */
@@ -806,21 +835,21 @@ private fun activeFilterCount(
 /*
  * KÖZELGŐ MECCS IDŐJELZŐ
  *
- * Nem szűri ki a mérkőzést.
+ * NEM szűri ki a mérkőzést.
  *
- * 0 - 3 óra:
+ * 0–3 óra:
  *     3h
  *
- * 3 - 6 óra:
+ * 3–6 óra:
  *     6h
  *
- * 6 - 9 óra:
+ * 6–9 óra:
  *     9h
  *
  * 9 órán túl:
  *     nincs jelzés
  *
- * Élő mérkőzés:
+ * Élő:
  *     nincs jelzés
  */
 private fun upcomingTimeBadge(
@@ -829,8 +858,7 @@ private fun upcomingTimeBadge(
 ): String? {
 
     /*
-     * Élő vagy már elkezdődött mérkőzéshez
-     * nem kell közelgő időjelzés.
+     * Élő vagy már elkezdődött mérkőzés.
      */
     if (!match.isNotStarted) {
         return null
@@ -846,7 +874,7 @@ private fun upcomingTimeBadge(
         kickoff - nowMillis
 
     /*
-     * Már elmúlt kezdési idő.
+     * Már elmúlt a kezdési idő.
      */
     if (difference < 0L) {
         return null
@@ -1155,14 +1183,19 @@ private fun FilterHeader(
 /*
  * SZŰRŐPANEL
  *
- * A 3 / 6 / 9 órás szűrők SZÁNDÉKOSAN
- * kikerültek.
+ * FONTOS:
+ * A Material3 FilterChip / AssistChip API
+ * miatt itt is szükséges az OptIn.
  *
- * A panel csak:
+ * A 3 / 6 / 9 órás szűrés SZÁNDÉKOSAN
+ * kikerült.
+ *
+ * Csak:
  * - Élő
  * - Kedvencek
  * - Szűrők törlése
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterPanel(
     showOnlyLive: Boolean,
@@ -1219,7 +1252,9 @@ private fun FilterPanel(
         LazyRow(
 
             horizontalArrangement =
-                Arrangement.spacedBy(7.dp)
+                Arrangement.spacedBy(
+                    7.dp
+                )
         ) {
 
             /*
@@ -1463,6 +1498,7 @@ private fun DateStrip(
 
     val dates =
         remember(Unit) {
+
             DateUtils.dateStrip()
         }
 
@@ -1476,7 +1512,9 @@ private fun DateStrip(
                 ),
 
         horizontalArrangement =
-            Arrangement.spacedBy(8.dp),
+            Arrangement.spacedBy(
+                8.dp
+            ),
 
         contentPadding =
             PaddingValues(
@@ -1587,8 +1625,11 @@ private fun DateStrip(
 
                     color =
                         if (isSelected) {
+
                             Color.White
+
                         } else {
+
                             MaterialTheme
                                 .colorScheme
                                 .onSurface
@@ -1776,8 +1817,7 @@ private fun LeagueHeader(
                         .colorScheme
                         .onSurfaceVariant
                         .copy(
-                            alpha =
-                                0.75f
+                            alpha = 0.75f
                         )
             )
         }
@@ -1827,8 +1867,11 @@ private fun LeagueHeader(
 
             color =
                 if (isFavorite) {
+
                     AccentGold
+
                 } else {
+
                     MaterialTheme
                         .colorScheme
                         .onSurfaceVariant
