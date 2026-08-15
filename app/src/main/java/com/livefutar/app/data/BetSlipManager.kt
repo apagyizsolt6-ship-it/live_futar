@@ -13,6 +13,7 @@ object BetSlipManager {
 
     private const val PREFS = "live_futar_betslip"
     private const val KEY = "selections"
+    private const val KEY_STAKE = "stake"
     private const val MAX_SELECTIONS = 10
     private val gson = Gson()
 
@@ -55,6 +56,16 @@ object BetSlipManager {
     }
 
     fun count(context: Context): Int = getSelections(context).size
+
+    /** A mentett tét (Ft), alapértelmezetten 1000 Ft. */
+    fun getStake(context: Context): Double {
+        val raw = prefs(context).getString(KEY_STAKE, null) ?: return 1000.0
+        return raw.toDoubleOrNull() ?: 1000.0
+    }
+
+    fun setStake(context: Context, stake: Double) {
+        prefs(context).edit().putString(KEY_STAKE, stake.toString()).apply()
+    }
 
     private fun save(context: Context, list: List<BetSlipSelection>) {
         prefs(context).edit().putString(KEY, gson.toJson(list)).apply()
