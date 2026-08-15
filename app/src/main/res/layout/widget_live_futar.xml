@@ -53,11 +53,11 @@
         android:paddingTop="5dp"
         android:paddingBottom="5dp">
 
-        <View
+        <ImageView
             android:id="@+id/widget_dot_1"
             android:layout_width="6dp"
             android:layout_height="6dp"
-            android:background="@drawable/widget_live_dot"
+            android:src="@drawable/widget_live_dot"
             android:visibility="gone"
             android:layout_marginEnd="6dp" />
 
@@ -89,11 +89,11 @@
         android:paddingTop="5dp"
         android:paddingBottom="5dp">
 
-        <View
+        <ImageView
             android:id="@+id/widget_dot_2"
             android:layout_width="6dp"
             android:layout_height="6dp"
-            android:background="@drawable/widget_live_dot"
+            android:src="@drawable/widget_live_dot"
             android:visibility="gone"
             android:layout_marginEnd="6dp" />
 
@@ -125,11 +125,11 @@
         android:paddingTop="5dp"
         android:paddingBottom="5dp">
 
-        <View
+        <ImageView
             android:id="@+id/widget_dot_3"
             android:layout_width="6dp"
             android:layout_height="6dp"
-            android:background="@drawable/widget_live_dot"
+            android:src="@drawable/widget_live_dot"
             android:visibility="gone"
             android:layout_marginEnd="6dp" />
 
@@ -161,11 +161,11 @@
         android:paddingTop="5dp"
         android:paddingBottom="5dp">
 
-        <View
+        <ImageView
             android:id="@+id/widget_dot_4"
             android:layout_width="6dp"
             android:layout_height="6dp"
-            android:background="@drawable/widget_live_dot"
+            android:src="@drawable/widget_live_dot"
             android:visibility="gone"
             android:layout_marginEnd="6dp" />
 
