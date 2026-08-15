@@ -18,11 +18,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.livefutar.app.data.ApiKeyManager
+import com.livefutar.app.data.BestOdds
+import com.livefutar.app.data.FootballApiService
+import com.livefutar.app.data.OddsCache
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.MatchCard
 import com.livefutar.app.ui.theme.AccentGold
@@ -94,6 +99,21 @@ fun HomeScreen(
         mutableStateOf(TimeWindowFilter.NONE)
     }
 
+    var searchExpanded by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var searchQuery by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var showOdds by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    val context = LocalContext.current
+    val apiService = remember { FootballApiService.create() }
+
     /*
      * ============================================================
      * SZŰRÉS
@@ -106,7 +126,8 @@ fun HomeScreen(
         favoriteLeagueIds,
         showOnlyFavorites,
         showOnlyLive,
-        selectedTimeWindow
+        selectedTimeWindow,
+        searchQuery
     ) {
 
         var result = matches
@@ -177,6 +198,29 @@ fun HomeScreen(
                         kickoff >= nowMillis &&
                         kickoff <= untilMillis
                 }
+            }
+        }
+
+        /*
+         * KERESÉS (csapat vagy bajnokság neve alapján)
+         */
+        if (searchQuery.isNotBlank()) {
+
+            val normalizedQuery =
+                normalizeForSort(searchQuery)
+
+            result = result.filter { match ->
+
+                val haystack =
+                    normalizeForSort(
+                        listOfNotNull(
+                            match.homeTeam?.name,
+                            match.awayTeam?.name,
+                            match.leagueDisplayName
+                        ).joinToString(" ")
+                    )
+
+                haystack.contains(normalizedQuery)
             }
         }
 
@@ -347,6 +391,23 @@ fun HomeScreen(
                 actions = {
 
                     /*
+                     * KERESÉS
+                     */
+                    Text(
+                        text = "🔍",
+                        fontSize = 18.sp,
+                        modifier =
+                            Modifier
+                                .padding(end = 10.dp)
+                                .clickable {
+                                    searchExpanded = !searchExpanded
+                                    if (!searchExpanded) {
+                                        searchQuery = ""
+                                    }
+                                }
+                    )
+
+                    /*
                      * FRISSÍTÉS
                      */
                     Text(
@@ -403,6 +464,41 @@ fun HomeScreen(
                                         ),
                                     selectedLabelColor =
                                         AccentGreen,
+                                    containerColor =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .surfaceVariant,
+                                    labelColor =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                ),
+                        modifier =
+                            Modifier.padding(
+                                end = 4.dp
+                            )
+                    )
+
+                    /*
+                     * ODDS MUTATÁSA
+                     */
+                    FilterChip(
+                        selected = showOdds,
+                        onClick = { showOdds = !showOdds },
+                        label = {
+                            Text(
+                                text = "💰",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        colors =
+                            FilterChipDefaults
+                                .filterChipColors(
+                                    selectedContainerColor =
+                                        AccentGold.copy(alpha = 0.25f),
+                                    selectedLabelColor =
+                                        AccentGold,
                                     containerColor =
                                         MaterialTheme
                                             .colorScheme
@@ -500,6 +596,29 @@ fun HomeScreen(
                     onDateSelected =
                         onDateSelected
                 )
+            }
+
+            /*
+             * KERESŐ MEZŐ
+             */
+            if (searchExpanded) {
+
+                item {
+
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        placeholder = {
+                            Text("Csapat vagy bajnokság keresése…", fontSize = 13.sp)
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
+                    )
+                }
             }
 
             /*
@@ -729,10 +848,16 @@ fun HomeScreen(
 
                         ) { match ->
 
-                            MatchCard(
+                            MatchCardWithOdds(
 
                                 match =
                                     match,
+
+                                showOdds = showOdds,
+
+                                apiService = apiService,
+
+                                context = context,
 
                                 isHomeFavorite =
                                     match.homeTeam?.id != null &&
@@ -1775,6 +1900,79 @@ private fun DateStrip(
             }
         }
     }
+}
+
+/*
+ * ============================================================
+ * MECCSKÁRTYA ODDS-LEKÉRÉSSEL
+ * ============================================================
+ *
+ * Csak akkor kér le odds-ot, ha be van kapcsolva a 💰 kapcsoló,
+ * a meccs még nem kezdődött el, és még nincs a gyorsítótárban -
+ * így nem terheljük feleslegesen az API-t minden meccsre.
+ */
+@Composable
+private fun MatchCardWithOdds(
+    match: MatchModel,
+    showOdds: Boolean,
+    apiService: FootballApiService,
+    context: android.content.Context,
+    isHomeFavorite: Boolean,
+    isAwayFavorite: Boolean,
+    onToggleHomeFavorite: () -> Unit,
+    onToggleAwayFavorite: () -> Unit,
+    onClick: () -> Unit
+) {
+
+    LaunchedEffect(match.id, showOdds) {
+
+        if (
+            showOdds &&
+            match.isNotStarted &&
+            !OddsCache.has(match.id) &&
+            !OddsCache.isLoading(match.id)
+        ) {
+
+            OddsCache.markLoading(match.id)
+
+            val apiKey = ApiKeyManager.getApiKey(context)
+
+            if (apiKey.isBlank()) {
+
+                OddsCache.set(match.id, null)
+
+            } else {
+
+                try {
+
+                    val response =
+                        apiService.getOdds(
+                            apiKey,
+                            match.id
+                        )
+
+                    OddsCache.set(
+                        match.id,
+                        OddsCache.extractBest1X2(response)
+                    )
+
+                } catch (_: Exception) {
+
+                    OddsCache.set(match.id, null)
+                }
+            }
+        }
+    }
+
+    MatchCard(
+        match = match,
+        isHomeFavorite = isHomeFavorite,
+        isAwayFavorite = isAwayFavorite,
+        onToggleHomeFavorite = onToggleHomeFavorite,
+        onToggleAwayFavorite = onToggleAwayFavorite,
+        oddsSummary = if (showOdds) OddsCache.get(match.id) else null,
+        onClick = onClick
+    )
 }
 
 /*
