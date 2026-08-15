@@ -4,8 +4,8 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,11 +26,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.livefutar.app.data.BestOdds
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
 import com.livefutar.app.ui.theme.LiveBorder
 import com.livefutar.app.ui.theme.LiveGlow
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +42,7 @@ fun MatchCard(
     isAwayFavorite: Boolean,
     onToggleHomeFavorite: () -> Unit,
     onToggleAwayFavorite: () -> Unit,
+    oddsSummary: BestOdds? = null,
     onClick: () -> Unit
 ) {
 
@@ -229,6 +232,16 @@ fun MatchCard(
                                     .primary
                         )
 
+                        if (oddsSummary != null) {
+
+                            Spacer(
+                                modifier =
+                                    Modifier.height(4.dp)
+                            )
+
+                            OddsMiniRow(oddsSummary)
+                        }
+
                     } else {
 
                         val scoreColor =
@@ -274,6 +287,29 @@ fun MatchCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun OddsMiniRow(odds: BestOdds) {
+
+    Column(
+        horizontalAlignment = Alignment.End
+    ) {
+
+        listOfNotNull(
+            odds.home?.let { "1: " + String.format(Locale.US, "%.2f", it) },
+            odds.draw?.let { "X: " + String.format(Locale.US, "%.2f", it) },
+            odds.away?.let { "2: " + String.format(Locale.US, "%.2f", it) }
+        ).forEach { line ->
+
+            Text(
+                text = line,
+                fontSize = 9.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
