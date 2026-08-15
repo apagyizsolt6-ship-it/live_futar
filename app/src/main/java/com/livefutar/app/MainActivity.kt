@@ -43,6 +43,7 @@ import com.livefutar.app.ui.screens.StandingsScreen
 import com.livefutar.app.ui.screens.VideoPlayerScreen
 import com.livefutar.app.ui.theme.LiveFutarTheme
 import com.livefutar.app.util.DateUtils
+import com.livefutar.app.widget.LiveFutarWidgetUpdater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -518,6 +519,17 @@ class MainActivity : ComponentActivity() {
                             ) {
 
                                 checkFavoriteMatchEvents(
+                                    newMatches
+                                )
+
+                                /*
+                                 * A kezdőképernyő-widget is a mai nap
+                                 * kedvenc meccseit mutatja - mivel ez az
+                                 * adat úgyis lekérésre került, nincs
+                                 * extra hálózati hívás.
+                                 */
+                                LiveFutarWidgetUpdater.updateWithMatches(
+                                    context,
                                     newMatches
                                 )
 
