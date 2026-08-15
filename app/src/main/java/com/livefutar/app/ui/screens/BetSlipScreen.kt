@@ -3,9 +3,11 @@ package com.livefutar.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +23,9 @@ import com.livefutar.app.data.BetSlipManager
 import com.livefutar.app.model.BetSlipSelection
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
+import java.util.Locale
+
+private val quickStakes = listOf(500.0, 1000.0, 2000.0, 5000.0, 10000.0)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,10 +34,21 @@ fun BetSlipScreen(
 ) {
     val context = LocalContext.current
     var selections by remember { mutableStateOf(BetSlipManager.getSelections(context)) }
+    var stake by remember { mutableStateOf(BetSlipManager.getStake(context)) }
+    var stakeText by remember { mutableStateOf(formatStakeInput(BetSlipManager.getStake(context))) }
+
     val combined = selections.fold(1.0) { acc, s -> acc * s.odd }
+    val potentialWin = stake * combined
 
     fun refresh() {
         selections = BetSlipManager.getSelections(context)
+    }
+
+    fun updateStake(newStake: Double) {
+        val safeStake = newStake.coerceIn(0.0, 10_000_000.0)
+        stake = safeStake
+        stakeText = formatStakeInput(safeStake)
+        BetSlipManager.setStake(context, safeStake)
     }
 
     Scaffold(
@@ -128,18 +144,102 @@ fun BetSlipScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                "Kombinált odds",
+                                "Kombinált odds ${formatOdd(combined)}",
                                 fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Spacer(Modifier.height(6.dp))
+
+                        Spacer(Modifier.height(16.dp))
+
                         Text(
-                            String.format("%.2f", combined),
-                            fontSize = 28.sp,
+                            "Tét (Ft)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(6.dp))
+
+                        OutlinedTextField(
+                            value = stakeText,
+                            onValueChange = { text ->
+                                stakeText = text
+                                val parsed = text.replace(" ", "").toDoubleOrNull()
+                                if (parsed != null) {
+                                    updateStake(parsed)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            trailingIcon = {
+                                Text(
+                                    "Ft",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                            }
+                        )
+
+                        Spacer(Modifier.height(10.dp))
+
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            quickStakes.forEach { amount ->
+                                val selected = stake == amount
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(
+                                            if (selected) AccentGold.copy(alpha = 0.25f)
+                                            else MaterialTheme.colorScheme.surfaceVariant
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (selected) AccentGold
+                                            else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                            RoundedCornerShape(10.dp)
+                                        )
+                                        .clickable { updateStake(amount) }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        formatStakeChip(amount),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (selected) AccentGold else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+                        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        Spacer(Modifier.height(16.dp))
+
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Text(
+                                "Lehetséges nyeremény",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            "${formatStakeChip(potentialWin)} Ft",
+                            fontSize = 30.sp,
                             fontWeight = FontWeight.Bold,
                             color = AccentGold
                         )
+
                         Spacer(Modifier.height(12.dp))
                         Text(
                             "Ez egy szimulált szelvény – a fogadást a saját bookmakerednél tudod leadni.",
@@ -188,7 +288,7 @@ private fun SlipRow(sel: BetSlipSelection, onRemove: () -> Unit) {
             }
         }
         Text(
-            String.format("%.2f", sel.odd),
+            formatOdd(sel.odd),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = AccentGreen,
@@ -203,4 +303,15 @@ private fun SlipRow(sel: BetSlipSelection, onRemove: () -> Unit) {
                 .padding(4.dp)
         )
     }
+}
+
+private fun formatOdd(value: Double): String =
+    String.format(Locale.US, "%.2f", value)
+
+private fun formatStakeInput(value: Double): String =
+    if (value == value.toLong().toDouble()) value.toLong().toString() else formatOdd(value)
+
+private fun formatStakeChip(value: Double): String {
+    val rounded = value.toLong()
+    return String.format(Locale.US, "%,d", rounded).replace(",", " ")
 }
