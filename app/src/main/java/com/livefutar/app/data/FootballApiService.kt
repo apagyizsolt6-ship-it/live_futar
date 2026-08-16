@@ -2,6 +2,7 @@ package com.livefutar.app.data
 
 import com.livefutar.app.model.ApiResponse
 import com.livefutar.app.model.HighlightModel
+import com.livefutar.app.model.MatchDetailsResponse
 import com.livefutar.app.model.MatchEventModel
 import com.livefutar.app.model.MatchLineups
 import com.livefutar.app.model.MatchModel
@@ -90,6 +91,16 @@ interface FootballApiService {
         @Header("x-rapidapi-key") apiKey: String,
         @Query("teamId") teamId: Long
     ): List<MatchModel>
+
+    /**
+     * Részletes meccsadat, benne az élő győzelmi-esély előrejelzéssel
+     * ("predictions.live") - ez adja a momentum-sávot.
+     */
+    @GET("matches/{id}")
+    suspend fun getMatchDetails(
+        @Header("x-rapidapi-key") apiKey: String,
+        @Path("id") matchId: Long
+    ): List<MatchDetailsResponse>
 
     companion object {
         fun create(): FootballApiService {
