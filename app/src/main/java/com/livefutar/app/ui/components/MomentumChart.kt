@@ -18,7 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.livefutar.app.model.PredictionEntry
+import com.livefutar.app.model.PredictionItem
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
 
@@ -32,7 +32,7 @@ import com.livefutar.app.ui.theme.AccentGreen
  */
 @Composable
 fun MomentumChart(
-    predictions: List<PredictionEntry>,
+    predictions: List<PredictionItem>,
     homeTeamName: String,
     awayTeamName: String
 ) {
