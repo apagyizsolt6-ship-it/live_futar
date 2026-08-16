@@ -27,14 +27,18 @@ import com.livefutar.app.data.BetSlipManager
 import com.livefutar.app.data.FootballApiService
 import com.livefutar.app.data.HalfTimeScoreCache
 import com.livefutar.app.model.*
+import com.livefutar.app.ui.components.MomentumChart
+import com.livefutar.app.ui.components.PitchView
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
 private enum class DetailTab {
     OVERVIEW,
+    PITCH,
     STATS,
     LINEUP,
     ODDS,
@@ -68,6 +72,10 @@ fun MatchDetailScreen(
 
     var statistics by remember(match.id) {
         mutableStateOf<List<TeamStatistics>>(emptyList())
+    }
+
+    var predictions by remember(match.id) {
+        mutableStateOf<List<PredictionEntry>>(emptyList())
     }
 
     var isLoading by remember(match.id) {
@@ -145,10 +153,53 @@ fun MatchDetailScreen(
                 } catch (_: Exception) {
                     emptyList()
                 }
+
+                predictions = try {
+                    val details = apiService.getMatchDetails(apiKey, match.id)
+                    val livePredictions = details.firstOrNull()?.predictions?.live.orEmpty()
+                    val prematchPredictions = details.firstOrNull()?.predictions?.prematch.orEmpty()
+                    (livePredictions.ifEmpty { prematchPredictions })
+                        .sortedBy { it.generatedAt ?: "" }
+                } catch (_: Exception) {
+                    emptyList()
+                }
             }
         }
 
         isLoading = false
+    }
+
+    /*
+     * Élő meccsnél az események és a győzelmi-esély is időnként frissül,
+     * hogy a Pálya fül ténylegesen "élőnek" tűnjön, amíg nyitva van a képernyő.
+     */
+    LaunchedEffect(match.id) {
+        if (!match.isLive) return@LaunchedEffect
+
+        val apiKey = ApiKeyManager.getApiKey(context)
+        if (apiKey.isBlank()) return@LaunchedEffect
+
+        while (true) {
+            delay(25_000)
+
+            try {
+                events = apiService
+                    .getMatchEvents(apiKey, match.id)
+                    .sortedBy { it.minuteSortKey }
+            } catch (_: Exception) {
+                // csendben kihagyjuk ezt a kört
+            }
+
+            try {
+                val details = apiService.getMatchDetails(apiKey, match.id)
+                val livePredictions = details.firstOrNull()?.predictions?.live.orEmpty()
+                if (livePredictions.isNotEmpty()) {
+                    predictions = livePredictions.sortedBy { it.generatedAt ?: "" }
+                }
+            } catch (_: Exception) {
+                // csendben kihagyjuk ezt a kört
+            }
+        }
     }
 
     Scaffold(
@@ -272,6 +323,9 @@ fun MatchDetailScreen(
                                         DetailTab.OVERVIEW ->
                                             "Osszegzes"
 
+                                        DetailTab.PITCH ->
+                                            "Palya"
+
                                         DetailTab.STATS ->
                                             "Stat"
 
@@ -317,6 +371,13 @@ fun MatchDetailScreen(
 
                     DetailTab.OVERVIEW ->
                         OverviewTab(events, match)
+
+                    DetailTab.PITCH ->
+                        PitchTab(
+                            match = match,
+                            events = events,
+                            predictions = predictions
+                        )
 
                     DetailTab.STATS ->
                         StatsTab(statistics)
@@ -709,6 +770,56 @@ private fun OverviewTab(
         Spacer(
             modifier = Modifier.height(24.dp)
         )
+    }
+}
+
+@Composable
+private fun PitchTab(
+    match: MatchModel,
+    events: List<MatchEventModel>,
+    predictions: List<PredictionEntry>
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+
+        if (predictions.isNotEmpty()) {
+            Text(
+                text = "Győzelmi esély (élő)",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            MomentumChart(
+                predictions = predictions,
+                homeTeamName = match.homeTeam?.name ?: "Hazai",
+                awayTeamName = match.awayTeam?.name ?: "Vendég"
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        Text(
+            text = "Esemény-pálya",
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Nem valós labdakövetés - az események stilizáltan, a csapat és a perc alapján jelennek meg.",
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+
+        PitchView(
+            events = events,
+            homeTeamId = match.homeTeam?.id
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
