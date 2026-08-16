@@ -75,7 +75,7 @@ fun MatchDetailScreen(
     }
 
     var predictions by remember(match.id) {
-        mutableStateOf<List<PredictionEntry>>(emptyList())
+        mutableStateOf<List<PredictionItem>>(emptyList())
     }
 
     var isLoading by remember(match.id) {
@@ -777,7 +777,7 @@ private fun OverviewTab(
 private fun PitchTab(
     match: MatchModel,
     events: List<MatchEventModel>,
-    predictions: List<PredictionEntry>
+    predictions: List<PredictionItem>
 ) {
     Column(
         modifier = Modifier
