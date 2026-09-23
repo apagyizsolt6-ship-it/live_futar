@@ -419,6 +419,22 @@ class MainActivity : ComponentActivity() {
                                     match.id
                                 )
                         }
+
+                        /*
+                         * Meccs vége (élő -> befejezett).
+                         */
+                        if (
+                            prev.isLive &&
+                            match.isFinished
+                        ) {
+                            NotificationHelper
+                                .notifyFullTime(
+                                    context,
+                                    "🏁 Vége: $homeName $newHome - $newAway $awayName",
+                                    match.leagueDisplayName,
+                                    match.id
+                                )
+                        }
                     }
                 }
 
