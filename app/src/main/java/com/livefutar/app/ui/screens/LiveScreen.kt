@@ -25,9 +25,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -470,26 +476,26 @@ fun LiveScreen(
 
 
                 actions = {
-                    Text(
-                        text = "🔍",
-                        fontSize = 18.sp,
-                        modifier = Modifier
-                            .padding(end = 10.dp)
-                            .clickable {
-                                searchExpanded = !searchExpanded
-                                if (!searchExpanded) searchQuery = ""
-                            }
-                    )
-                    Text(
-                        text = if (isRefreshing) "…" else "↻",
-                        fontSize = 23.sp,
-                        color = AccentGreen,
-                        modifier = Modifier
-                            .padding(end = 16.dp)
-                            .clickable(enabled = !isRefreshing) {
-                                onRefresh()
-                            }
-                    )
+                    IconButton(onClick = {
+                        searchExpanded = !searchExpanded
+                        if (!searchExpanded) searchQuery = ""
+                    }) {
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = "Keresés",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    IconButton(
+                        onClick = onRefresh,
+                        enabled = !isRefreshing
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Frissítés",
+                            tint = AccentGreen
+                        )
+                    }
                 },
 
 
@@ -557,14 +563,27 @@ fun LiveScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = if (queryNormalized.isNotBlank()) "🔍" else "⚽",
-                            fontSize = 42.sp
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val emptyIcon = if (queryNormalized.isNotBlank()) {
+                            Icons.Filled.Search
+                        } else {
+                            Icons.Filled.SportsSoccer
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(CircleShape)
+                                .background(AccentGreen.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = emptyIcon,
+                                contentDescription = null,
+                                tint = AccentGreen,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = if (queryNormalized.isNotBlank()) {
                                 "Nincs találat: \"$searchQuery\""

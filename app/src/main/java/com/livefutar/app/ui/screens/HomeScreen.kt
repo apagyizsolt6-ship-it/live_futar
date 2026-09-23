@@ -14,6 +14,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SportsSoccer
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -393,81 +399,46 @@ fun HomeScreen(
                             Alignment.CenterVertically
                     ) {
 
+                        Icon(
+                            imageVector = Icons.Filled.SportsSoccer,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "LIVE FUTÁR",
-                            fontWeight =
-                                FontWeight.Bold,
+                            text = "Live Futár",
+                            fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
-
-                        Spacer(
-                            modifier =
-                                Modifier.width(6.dp)
-                        )
-
-                        Text(
-                            text = "⚽",
-                            fontSize = 16.sp
-                        )
-
                         if (liveCount > 0) {
-
-                            Spacer(
-                                modifier =
-                                    Modifier.width(8.dp)
-                            )
-
-                            LiveBadge(
-                                count = liveCount
-                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            LiveBadge(count = liveCount)
                         }
                     }
                 },
 
                 actions = {
-
-                    /*
-                     * KERESÉS
-                     */
-                    Text(
-                        text = "🔍",
-                        fontSize = 18.sp,
-                        modifier =
-                            Modifier
-                                .padding(end = 10.dp)
-                                .clickable {
-                                    searchExpanded = !searchExpanded
-                                    if (!searchExpanded) {
-                                        searchQuery = ""
-                                    }
-                                }
-                    )
-
-                    /*
-                     * FRISSÍTÉS
-                     */
-                    Text(
-                        text =
-                            if (isRefreshing) {
-                                "…"
-                            } else {
-                                "↻"
-                            },
-                        fontSize = 20.sp,
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .primary,
-                        modifier =
-                            Modifier
-                                .padding(end = 6.dp)
-                                .clickable(
-                                    enabled =
-                                        !isRefreshing
-                                ) {
-                                    onRefresh()
-                                }
-                    )
+                    IconButton(onClick = {
+                        searchExpanded = !searchExpanded
+                        if (!searchExpanded) searchQuery = ""
+                    }) {
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = "Keresés",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    IconButton(
+                        onClick = onRefresh,
+                        enabled = !isRefreshing
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Frissítés",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
 
                     /*
                      * ÉLŐ
@@ -1788,70 +1759,55 @@ private fun EmptyState(
     showOnlyFavorites: Boolean,
     showOnlyLive: Boolean
 ) {
-
-    val message =
-        when {
-
-            showOnlyLive ->
-                "Jelenleg nincs élő mérkőzés"
-
-            showOnlyFavorites ->
-                "Nincs kedvenc mérkőzés ezen a napon"
-
-            else ->
-                "Nincsenek mérkőzések ezen a napon"
-        }
+    val message = when {
+        showOnlyLive -> "Jelenleg nincs élő mérkőzés"
+        showOnlyFavorites -> "Nincs kedvenc mérkőzés ezen a napon"
+        else -> "Nincsenek mérkőzések ezen a napon"
+    }
+    val icon = when {
+        showOnlyLive -> Icons.Filled.SportsSoccer
+        showOnlyFavorites -> Icons.Filled.Star
+        else -> Icons.Filled.CalendarMonth
+    }
+    val iconTint = when {
+        showOnlyLive -> AccentGreen
+        showOnlyFavorites -> AccentGold
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
     Box(
-
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(40.dp),
-
-        contentAlignment =
-            Alignment.Center
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(48.dp),
+        contentAlignment = Alignment.Center
     ) {
-
-        Column(
-
-            horizontalAlignment =
-                Alignment.CenterHorizontally
-        ) {
-
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(iconTint.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
-
-                text =
-                    when {
-
-                        showOnlyLive ->
-                            "⚽"
-
-                        showOnlyFavorites ->
-                            "★"
-
-                        else ->
-                            "📅"
-                    },
-
-                fontSize = 36.sp
-            )
-
-            Spacer(
-                modifier =
-                    Modifier.height(12.dp)
-            )
-
-            Text(
-                text =
-                    message,
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant,
+                text = message,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 15.sp,
-                fontWeight =
-                    FontWeight.Medium
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Próbáld meg frissíteni, vagy válts napot",
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                fontSize = 12.sp
             )
         }
     }

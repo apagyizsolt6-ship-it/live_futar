@@ -236,10 +236,10 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("LIVE FUTÁR ⚽", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Live Futár", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Verzió 1.1 · Prémium élő eredmények",
+                        "Verzió 1.3 · Prémium élő eredmények",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

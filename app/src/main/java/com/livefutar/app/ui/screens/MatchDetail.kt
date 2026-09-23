@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -216,15 +218,12 @@ fun MatchDetailScreen(
                 },
 
                 navigationIcon = {
-                    Text(
-                        text = "<-",
-                        fontSize = 22.sp,
-                        modifier = Modifier
-                            .clickable {
-                                onBackClick()
-                            }
-                            .padding(horizontal = 12.dp)
-                    )
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Vissza"
+                        )
+                    }
                 },
 
                 actions = {
@@ -490,24 +489,17 @@ private fun MatchScoreHeader(
                 Text(
                     text =
                         if (match.isLive) {
-                            "ELO " +
-                                (match.liveMinuteLabel ?: "")
+                            "ÉLŐ " + (match.liveMinuteLabel ?: "")
                         } else {
                             match.statusLabel
                         },
-
                     fontSize = 13.sp,
-
-                    fontWeight =
-                        FontWeight.Bold,
-
+                    fontWeight = FontWeight.Bold,
                     color =
                         if (match.isLive) {
                             AccentGreen
                         } else {
-                            MaterialTheme
-                                .colorScheme
-                                .onSurfaceVariant
+                            MaterialTheme.colorScheme.onSurfaceVariant
                         }
                 )
             }
@@ -547,18 +539,13 @@ private fun MatchScoreHeader(
                                 "-"
                             },
 
-                        fontSize = 28.sp,
-
-                        fontWeight =
-                            FontWeight.Bold,
-
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
                         color =
                             if (match.isLive) {
                                 AccentGreen
                             } else {
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurface
+                                MaterialTheme.colorScheme.onSurface
                             }
                     )
 
@@ -651,8 +638,9 @@ private fun TeamBlock(
                 model = team?.logo,
                 contentDescription = null,
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape),
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
                 contentScale = ContentScale.Fit
             )
 
@@ -660,7 +648,7 @@ private fun TeamBlock(
 
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
                     .background(
                         MaterialTheme
