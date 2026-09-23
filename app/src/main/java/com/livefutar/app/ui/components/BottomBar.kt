@@ -6,10 +6,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsSoccer
-import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,16 +32,33 @@ fun LiveFutarBottomBar(
     liveCount: Int = 0,
     onScreenSelected: (String) -> Unit
 ) {
+    val primary = MaterialTheme.colorScheme.primary
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 8.dp
     ) {
-        NavItem(
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.SportsSoccer,
+                    contentDescription = "Meccsek",
+                    modifier = Modifier.size(if (currentScreen == "home") 26.dp else 24.dp)
+                )
+            },
+            label = {
+                Text(
+                    "Meccsek",
+                    fontSize = 11.sp,
+                    fontWeight = if (currentScreen == "home") FontWeight.Bold else FontWeight.Medium
+                )
+            },
             selected = currentScreen == "home",
-            icon = Icons.Filled.SportsSoccer,
-            label = "Meccsek",
-            onClick = { onScreenSelected("home") }
+            onClick = { onScreenSelected("home") },
+            colors = navItemColors(primary)
         )
+
         NavigationBarItem(
             icon = {
                 Box {
@@ -50,11 +66,7 @@ fun LiveFutarBottomBar(
                         imageVector = Icons.Filled.FiberManualRecord,
                         contentDescription = "Élő",
                         modifier = Modifier.size(if (currentScreen == "live") 26.dp else 24.dp),
-                        tint = if (currentScreen == "live") {
-                            AccentGreen
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
+                        tint = if (currentScreen == "live") AccentGreen else muted
                     )
                     if (liveCount > 0) {
                         Box(
@@ -85,58 +97,57 @@ fun LiveFutarBottomBar(
             },
             selected = currentScreen == "live",
             onClick = { onScreenSelected("live") },
-            colors = navColors(AccentGreen)
+            colors = navItemColors(AccentGreen)
         )
-        NavItem(
+
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.PlayCircle,
+                    contentDescription = "Videók",
+                    modifier = Modifier.size(if (currentScreen == "highlights") 26.dp else 24.dp)
+                )
+            },
+            label = {
+                Text(
+                    "Videók",
+                    fontSize = 11.sp,
+                    fontWeight = if (currentScreen == "highlights") FontWeight.Bold else FontWeight.Medium
+                )
+            },
             selected = currentScreen == "highlights",
-            icon = Icons.Filled.PlayCircle,
-            label = "Videók",
-            onClick = { onScreenSelected("highlights") }
+            onClick = { onScreenSelected("highlights") },
+            colors = navItemColors(primary)
         )
-        NavItem(
+
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = "Beállítások",
+                    modifier = Modifier.size(if (currentScreen == "settings") 26.dp else 24.dp)
+                )
+            },
+            label = {
+                Text(
+                    "Beállítások",
+                    fontSize = 11.sp,
+                    fontWeight = if (currentScreen == "settings") FontWeight.Bold else FontWeight.Medium
+                )
+            },
             selected = currentScreen == "settings",
-            icon = Icons.Filled.Settings,
-            label = "Beállítások",
-            onClick = { onScreenSelected("settings") }
+            onClick = { onScreenSelected("settings") },
+            colors = navItemColors(primary)
         )
     }
 }
 
 @Composable
-private fun NavItem(
-    selected: Boolean,
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit,
-    selectedColor: Color? = null
-) {
-    NavigationBarItem(
-        icon = {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                modifier = Modifier.size(if (selected) 26.dp else 24.dp)
-            )
-        },
-        label = {
-            Text(
-                label,
-                fontSize = 11.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-            )
-        },
-        selected = selected,
-        onClick = onClick,
-        colors = navColors(selectedColor)
-    )
-}
-
-@Composable
-private fun navColors(selectedColor: Color? = null) =
+private fun navItemColors(selectedColor: Color) =
     NavigationBarItemDefaults.colors(
-        selectedIconColor = selectedColor ?: MaterialTheme.colorScheme.primary,
-        selectedTextColor = selectedColor ?: MaterialTheme.colorScheme.primary,
+        selectedIconColor = selectedColor,
+        selectedTextColor = selectedColor,
         unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        indicatorColor = (selectedColor ?: MaterialTheme.colorScheme.primary).copy(alpha = 0.14f)
+        indicatorColor = selectedColor.copy(alpha = 0.14f)
     )
