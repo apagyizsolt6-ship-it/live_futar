@@ -224,12 +224,17 @@ fun LiveScreen(
      * Kedvenc csapatok élő meccsei – a lista tetején.
      */
     val favoriteLiveMatches =
-        liveMatches.filter { match ->
-            val homeId = match.homeTeam?.id
-            val awayId = match.awayTeam?.id
-            (homeId != null && homeId in favoriteTeamIds) ||
-                (awayId != null && awayId in favoriteTeamIds)
-        }
+        liveMatches
+            .filter { match ->
+                val homeId = match.homeTeam?.id
+                val awayId = match.awayTeam?.id
+                (homeId != null && homeId in favoriteTeamIds) ||
+                    (awayId != null && awayId in favoriteTeamIds)
+            }
+            .sortedWith(
+                compareByDescending<MatchModel> { it.state?.clock ?: -1 }
+                    .thenBy { it.id }
+            )
 
     /*
      * ========================================================
@@ -307,20 +312,14 @@ fun LiveScreen(
 
                     matches =
                         leagueMatches.sortedWith(
-
-                            compareBy<MatchModel> {
-
-                                parseLiveDate(
-                                    it.date
-                                )?.time
-                                    ?: Long.MAX_VALUE
-
+                            // Előrébb: magasabb élő perc, majd kezdési idő
+                            compareByDescending<MatchModel> {
+                                it.state?.clock ?: -1
                             }.thenBy {
-
+                                parseLiveDate(it.date)?.time ?: Long.MAX_VALUE
+                            }.thenBy {
                                 it.id
-
                             }
-
                         )
                 )
             }

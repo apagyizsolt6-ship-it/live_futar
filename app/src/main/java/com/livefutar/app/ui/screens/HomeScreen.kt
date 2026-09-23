@@ -259,6 +259,28 @@ fun HomeScreen(
         }
 
     /*
+     * Kedvenc csapatok meccsei a szűrt listából – a lista tetején.
+     * (Csak ha nem „csak kedvencek” mód van, különben duplikálódna.)
+     */
+    val favoriteMatchesTop =
+        if (!showOnlyFavorites && searchQuery.isBlank()) {
+            filteredMatches
+                .filter { match ->
+                    val homeId = match.homeTeam?.id
+                    val awayId = match.awayTeam?.id
+                    (homeId != null && homeId in favoriteTeamIds) ||
+                        (awayId != null && awayId in favoriteTeamIds)
+                }
+                .sortedWith(
+                    compareByDescending<MatchModel> { it.isLive }
+                        .thenBy { parseMatchDate(it.date)?.time ?: Long.MAX_VALUE }
+                        .thenBy { it.id }
+                )
+        } else {
+            emptyList()
+        }
+
+    /*
      * ============================================================
      * BAJNOKSÁGOK CSOPORTOSÍTÁSA
      * ============================================================
@@ -270,8 +292,16 @@ fun HomeScreen(
      * 3. Bajnokság -> ABC
      */
 
+    val matchesForGrouping =
+        if (favoriteMatchesTop.isNotEmpty()) {
+            val favIds = favoriteMatchesTop.map { it.id }.toSet()
+            filteredMatches.filter { it.id !in favIds }
+        } else {
+            filteredMatches
+        }
+
     val grouped =
-        filteredMatches
+        matchesForGrouping
             .groupBy { match ->
                 leagueKey(match)
             }
@@ -771,6 +801,67 @@ fun HomeScreen(
                 }
 
             } else {
+
+                /*
+                 * Kedvenceim – a lista tetején
+                 */
+                if (favoriteMatchesTop.isNotEmpty()) {
+                    item(key = "fav_home_header") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "★",
+                                fontSize = 14.sp,
+                                color = AccentGold
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Kedvenceim",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentGold
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(AccentGold.copy(alpha = 0.18f))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = favoriteMatchesTop.size.toString(),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentGold
+                                )
+                            }
+                        }
+                    }
+                    items(
+                        items = favoriteMatchesTop,
+                        key = { "fav_home_${it.id}" }
+                    ) { match ->
+                        MatchCard(
+                            match = match,
+                            isHomeFavorite = match.homeTeam?.id in favoriteTeamIds,
+                            isAwayFavorite = match.awayTeam?.id in favoriteTeamIds,
+                            onToggleHomeFavorite = {
+                                match.homeTeam?.id?.let(onToggleTeamFavorite)
+                            },
+                            onToggleAwayFavorite = {
+                                match.awayTeam?.id?.let(onToggleTeamFavorite)
+                            },
+                            onClick = { onMatchClick(match) }
+                        )
+                    }
+                    item(key = "fav_home_spacer") {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
 
                 /*
                  * =================================================
