@@ -61,6 +61,15 @@ object NotificationHelper {
         show(context, title, message, matchId)
     }
 
+    fun notifyFullTime(
+        context: Context,
+        title: String,
+        message: String,
+        matchId: Long? = null
+    ) {
+        show(context, title, message, matchId)
+    }
+
     private fun show(
         context: Context,
         title: String,
