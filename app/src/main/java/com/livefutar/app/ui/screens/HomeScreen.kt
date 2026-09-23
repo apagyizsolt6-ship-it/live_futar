@@ -35,6 +35,7 @@ import com.livefutar.app.data.FootballApiService
 import com.livefutar.app.data.OddsCache
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.MatchCard
+import com.livefutar.app.ui.components.PullRefreshBox
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
 import com.livefutar.app.util.DateUtils
@@ -570,14 +571,18 @@ fun HomeScreen(
 
     ) { paddingValues ->
 
+        PullRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
         LazyColumn(
 
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(
-                        paddingValues
-                    )
                     .background(
                         MaterialTheme
                             .colorScheme
@@ -919,7 +924,8 @@ fun HomeScreen(
                         )
                 )
             }
-        }
+        } // LazyColumn
+        } // PullRefreshBox
     }
 }
 

@@ -20,11 +20,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -52,6 +55,7 @@ import coil.compose.AsyncImage
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.LivePulseDot
 import com.livefutar.app.ui.components.MatchCard
+import com.livefutar.app.ui.components.PullRefreshBox
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
 import java.text.ParseException
@@ -134,6 +138,8 @@ fun LiveScreen(
 
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    /** null = minden liga */
+    var selectedLeagueKey by rememberSaveable { mutableStateOf<String?>(null) }
 
     /*
      * ========================================================
@@ -174,7 +180,7 @@ fun LiveScreen(
     val queryNormalized =
         searchQuery.trim().lowercase(Locale.getDefault())
 
-    val liveMatches =
+    val searchFiltered =
         if (queryNormalized.isBlank()) {
             allLiveMatches
         } else {
@@ -190,6 +196,28 @@ fun LiveScreen(
                     away.contains(queryNormalized) ||
                     league.contains(queryNormalized)
             }
+        }
+
+    /*
+     * Liga chip opciók (keresés előtt, az összes élőből).
+     */
+    val leagueChipOptions = remember(allLiveMatches) {
+        allLiveMatches
+            .groupBy { liveLeagueKey(it) }
+            .map { (key, list) ->
+                val name = list.firstOrNull()?.leagueDisplayName
+                    ?.takeIf { it.isNotBlank() }
+                    ?: "Egyéb"
+                key to (name to list.size)
+            }
+            .sortedBy { it.second.first.lowercase(Locale.getDefault()) }
+    }
+
+    val liveMatches =
+        if (selectedLeagueKey == null) {
+            searchFiltered
+        } else {
+            searchFiltered.filter { liveLeagueKey(it) == selectedLeagueKey }
         }
 
     /*
@@ -507,6 +535,24 @@ fun LiveScreen(
                 )
             }
 
+            if (leagueChipOptions.isNotEmpty() && !searchExpanded) {
+                LiveLeagueChips(
+                    options = leagueChipOptions,
+                    selectedKey = selectedLeagueKey,
+                    totalCount = allLiveMatches.size,
+                    onSelect = { key ->
+                        selectedLeagueKey =
+                            if (selectedLeagueKey == key) null else key
+                    },
+                    onClear = { selectedLeagueKey = null }
+                )
+            }
+
+            PullRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh,
+                modifier = Modifier.weight(1f)
+            ) {
             if (liveMatches.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -783,10 +829,64 @@ fun LiveScreen(
                 }
             } // LazyColumn
             } // else (van élő meccs)
+            } // PullRefreshBox
         } // Column
     } // Scaffold content
 }
 
+
+@Composable
+private fun LiveLeagueChips(
+    options: List<Pair<String, Pair<String, Int>>>,
+    selectedKey: String?,
+    totalCount: Int,
+    onSelect: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)
+    ) {
+        item {
+            FilterChip(
+                selected = selectedKey == null,
+                onClick = onClear,
+                label = {
+                    Text(
+                        text = "Összes ($totalCount)",
+                        fontSize = 12.sp
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = AccentGreen.copy(alpha = 0.22f),
+                    selectedLabelColor = AccentGreen
+                )
+            )
+        }
+        items(options, key = { it.first }) { (key, nameAndCount) ->
+            val (name, count) = nameAndCount
+            FilterChip(
+                selected = selectedKey == key,
+                onClick = { onSelect(key) },
+                label = {
+                    Text(
+                        text = "$name ($count)",
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = AccentGreen.copy(alpha = 0.22f),
+                    selectedLabelColor = AccentGreen
+                )
+            )
+        }
+    }
+}
 
 @Composable
 private fun LiveSearchBar(
