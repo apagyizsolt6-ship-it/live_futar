@@ -835,6 +835,7 @@ fun LiveScreen(
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LiveLeagueChips(
     options: List<Pair<String, Pair<String, Int>>>,
