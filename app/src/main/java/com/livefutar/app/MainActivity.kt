@@ -1,5 +1,6 @@
 package com.livefutar.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -120,11 +121,16 @@ suspend fun fetchAllMatches(
 
 class MainActivity : ComponentActivity() {
 
+    /** Értesítésből érkező meccs-id (null = nincs pending deep link). */
+    private var pendingMatchIdState =
+        mutableStateOf<Long?>(null)
+
     override fun onCreate(
         savedInstanceState: Bundle?
     ) {
 
         super.onCreate(savedInstanceState)
+        pendingMatchIdState.value = extractMatchId(intent)
 
         setContent {
 
@@ -144,6 +150,8 @@ class MainActivity : ComponentActivity() {
                         .getAccent(context)
                 )
             }
+
+            val pendingMatchId by pendingMatchIdState
 
             LiveFutarTheme(
                 themeMode = themeMode,
@@ -367,7 +375,8 @@ class MainActivity : ComponentActivity() {
                                 .notifyKickoff(
                                     context,
                                     "⚽ Elkezdődött: $homeName – $awayName",
-                                    match.leagueDisplayName
+                                    match.leagueDisplayName,
+                                    match.id
                                 )
                         }
 
@@ -406,7 +415,8 @@ class MainActivity : ComponentActivity() {
                                 .notifyGoal(
                                     context,
                                     "⚽ Gól! $homeName $newHome - $newAway $awayName",
-                                    match.leagueDisplayName
+                                    match.leagueDisplayName,
+                                    match.id
                                 )
                         }
                     }
@@ -1012,7 +1022,36 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+
+                /*
+                 * Értesítés deep link: meccs megnyitása matchId alapján.
+                 */
+                LaunchedEffect(pendingMatchId, matches, todayMatches) {
+                    val id = pendingMatchId ?: return@LaunchedEffect
+                    val found =
+                        todayMatches.find { it.id == id }
+                            ?: matches.find { it.id == id }
+                    if (found != null) {
+                        selectedMatch = found
+                        pendingMatchIdState.value = null
+                    }
+                }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingMatchIdState.value = extractMatchId(intent)
+    }
+
+    private fun extractMatchId(intent: Intent?): Long? {
+        if (intent == null) return null
+        if (intent.hasExtra(NotificationHelper.EXTRA_MATCH_ID)) {
+            val id = intent.getLongExtra(NotificationHelper.EXTRA_MATCH_ID, -1L)
+            if (id > 0L) return id
+        }
+        return null
     }
 }
