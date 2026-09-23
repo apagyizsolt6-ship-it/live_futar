@@ -56,6 +56,7 @@ fun LiveFutarTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = LiveFutarTypography,
         content = content
     )
 }
