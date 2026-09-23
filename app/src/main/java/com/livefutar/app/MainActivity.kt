@@ -33,6 +33,7 @@ import com.livefutar.app.model.HighlightModel
 import com.livefutar.app.model.LeagueModel
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.LiveFutarBottomBar
+import com.livefutar.app.ui.components.SkeletonMatchList
 import com.livefutar.app.ui.screens.BetSlipScreen
 import com.livefutar.app.ui.screens.HighlightsScreen
 import com.livefutar.app.ui.screens.HomeScreen
@@ -694,11 +695,7 @@ class MainActivity : ComponentActivity() {
 
                     ) {
 
-                        if (
-                            isRefreshing &&
-                            currentScreen != "live"
-                        ) {
-
+                        if (isRefreshing) {
                             LinearProgressIndicator(
                                 modifier =
                                     Modifier
@@ -808,20 +805,7 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 isLoading -> {
-
-                                    Box(
-
-                                        modifier =
-                                            Modifier
-                                                .fillMaxSize(),
-
-                                        contentAlignment =
-                                            Alignment.Center
-
-                                    ) {
-
-                                        CircularProgressIndicator()
-                                    }
+                                    SkeletonMatchList(count = 7)
                                 }
 
                                 errorMessage != null &&
