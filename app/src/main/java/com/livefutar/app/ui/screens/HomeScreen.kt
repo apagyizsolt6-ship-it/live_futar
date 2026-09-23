@@ -1,5 +1,10 @@
 package com.livefutar.app.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -601,10 +606,12 @@ fun HomeScreen(
             /*
              * KERESŐ MEZŐ
              */
-            if (searchExpanded) {
-
-                item {
-
+            item {
+                AnimatedVisibility(
+                    visible = searchExpanded,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },

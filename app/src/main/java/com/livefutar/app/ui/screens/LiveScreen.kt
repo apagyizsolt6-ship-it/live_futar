@@ -1,5 +1,10 @@
 package com.livefutar.app.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -25,20 +31,28 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.livefutar.app.model.MatchModel
+import com.livefutar.app.ui.components.LivePulseDot
 import com.livefutar.app.ui.components.MatchCard
+import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
 import java.text.ParseException
 import java.text.SimpleDateFormat
@@ -64,6 +78,8 @@ import java.util.TimeZone
  * - frissítés gomb
  * - kedvenc csapatok
  * - meccs részletek megnyitása
+ * - kereső (csapat / bajnokság)
+ * - „Kedvenceim élőben” szekció a lista tetején
  *
  * FONTOS:
  *
@@ -116,6 +132,9 @@ fun LiveScreen(
 
 ) {
 
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+
     /*
      * ========================================================
      * BAJNOKSÁGOK NYITOTT / ZÁRT ÁLLAPOTA
@@ -143,17 +162,46 @@ fun LiveScreen(
 
     /*
      * ========================================================
-     * CSAK ÉLŐ MECCSEK
+     * CSAK ÉLŐ MECCSEK (+ opcionális kereső)
      * ========================================================
      */
 
-    val liveMatches =
+    val allLiveMatches =
         matches.filter { match ->
-
             match.isLive
-
         }
 
+    val queryNormalized =
+        searchQuery.trim().lowercase(Locale.getDefault())
+
+    val liveMatches =
+        if (queryNormalized.isBlank()) {
+            allLiveMatches
+        } else {
+            allLiveMatches.filter { match ->
+                val home = match.homeTeam?.name.orEmpty()
+                    .lowercase(Locale.getDefault())
+                val away = match.awayTeam?.name.orEmpty()
+                    .lowercase(Locale.getDefault())
+                val league = match.leagueDisplayName
+                    .orEmpty()
+                    .lowercase(Locale.getDefault())
+                home.contains(queryNormalized) ||
+                    away.contains(queryNormalized) ||
+                    league.contains(queryNormalized)
+            }
+        }
+
+    /*
+     * Kedvenc csapatok élő meccsei – a lista tetején.
+     */
+    val favoriteLiveMatches =
+        liveMatches.filter { match ->
+            val homeId = match.homeTeam?.id
+            val awayId = match.awayTeam?.id
+            (homeId != null && homeId in favoriteTeamIds) ||
+                (awayId != null && awayId in favoriteTeamIds)
+        }
 
     /*
      * ========================================================
@@ -185,13 +233,23 @@ fun LiveScreen(
      * ========================================================
      */
 
+    // Kedvencek szekció mellett ne ismétlődjenek a liga-listában (keresésnél viszont minden)
+    val matchesForGrouping =
+        if (queryNormalized.isBlank() && favoriteLiveMatches.isNotEmpty()) {
+            liveMatches.filter { match ->
+                val homeId = match.homeTeam?.id
+                val awayId = match.awayTeam?.id
+                !((homeId != null && homeId in favoriteTeamIds) ||
+                    (awayId != null && awayId in favoriteTeamIds))
+            }
+        } else {
+            liveMatches
+        }
+
     val grouped =
-        liveMatches
-
+        matchesForGrouping
             .groupBy { match ->
-
                 liveLeagueKey(match)
-
             }
 
             .map { (key, leagueMatches) ->
@@ -384,41 +442,26 @@ fun LiveScreen(
                 },
 
 
-                /*
-                 * FRISSÍTÉS
-                 */
-
                 actions = {
-
                     Text(
-
-                        text =
-                            if (isRefreshing) {
-                                "…"
-                            } else {
-                                "↻"
-                            },
-
-                        fontSize =
-                            23.sp,
-
-                        color =
-                            AccentGreen,
-
-                        modifier =
-                            Modifier
-                                .padding(
-                                    end = 16.dp
-                                )
-                                .clickable(
-                                    enabled =
-                                        !isRefreshing
-                                ) {
-
-                                    onRefresh()
-
-                                }
-
+                        text = "🔍",
+                        fontSize = 18.sp,
+                        modifier = Modifier
+                            .padding(end = 10.dp)
+                            .clickable {
+                                searchExpanded = !searchExpanded
+                                if (!searchExpanded) searchQuery = ""
+                            }
+                    )
+                    Text(
+                        text = if (isRefreshing) "…" else "↻",
+                        fontSize = 23.sp,
+                        color = AccentGreen,
+                        modifier = Modifier
+                            .padding(end = 16.dp)
+                            .clickable(enabled = !isRefreshing) {
+                                onRefresh()
+                            }
                     )
                 },
 
@@ -443,103 +486,98 @@ fun LiveScreen(
 
     ) { paddingValues ->
 
-
-        /*
-         * ====================================================
-         * NINCS ÉLŐ MECCS
-         * ====================================================
-         */
-
-        if (liveMatches.isEmpty()) {
-
-            Box(
-
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(
-                            paddingValues
-                        ),
-
-                contentAlignment =
-                    Alignment.Center
-
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            AnimatedVisibility(
+                visible = searchExpanded,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
             ) {
-
-                Column(
-
-                    horizontalAlignment =
-                        Alignment.CenterHorizontally
-
-                ) {
-
-                    Text(
-
-                        text =
-                            "⚽",
-
-                        fontSize =
-                            42.sp
-
-                    )
-
-                    Spacer(
-                        modifier =
-                            Modifier.height(
-                                12.dp
-                            )
-                    )
-
-                    Text(
-
-                        text =
-                            "Jelenleg nincs élő mérkőzés",
-
-                        fontSize =
-                            15.sp,
-
-                        fontWeight =
-                            FontWeight.Medium,
-
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .onSurfaceVariant
-
-                    )
-                }
+                LiveSearchBar(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    onClear = {
+                        searchQuery = ""
+                        searchExpanded = false
+                    }
+                )
             }
 
-        } else {
-
-
+            if (liveMatches.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (queryNormalized.isNotBlank()) "🔍" else "⚽",
+                            fontSize = 42.sp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = if (queryNormalized.isNotBlank()) {
+                                "Nincs találat: \"$searchQuery\""
+                            } else {
+                                "Jelenleg nincs élő mérkőzés"
+                            },
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (queryNormalized.isBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Húzd le a frissítést, vagy nézz vissza később",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                }
+            } else {
             /*
              * =================================================
              * ÉLŐ LISTA
              * =================================================
              */
-
             LazyColumn(
-
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(
-                            paddingValues
-                        )
-                        .background(
-                            MaterialTheme
-                                .colorScheme
-                                .background
-                        ),
-
-                verticalArrangement =
-                    Arrangement.spacedBy(
-                        1.dp
-                    )
-
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
-
+                /*
+                 * Kedvenceim élőben – a lista tetején
+                 */
+                if (favoriteLiveMatches.isNotEmpty() && queryNormalized.isBlank()) {
+                    item(key = "fav_header") {
+                        FavoriteLiveHeader(count = favoriteLiveMatches.size)
+                    }
+                    items(
+                        items = favoriteLiveMatches,
+                        key = { "fav_${it.id}" }
+                    ) { match ->
+                        MatchCard(
+                            match = match,
+                            isHomeFavorite = match.homeTeam?.id in favoriteTeamIds,
+                            isAwayFavorite = match.awayTeam?.id in favoriteTeamIds,
+                            onToggleHomeFavorite = {
+                                match.homeTeam?.id?.let(onToggleTeamFavorite)
+                            },
+                            onToggleAwayFavorite = {
+                                match.awayTeam?.id?.let(onToggleTeamFavorite)
+                            },
+                            onClick = { onMatchClick(match) }
+                        )
+                    }
+                    item(key = "fav_spacer") {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
 
                 /*
                  * =================================================
@@ -739,19 +777,109 @@ fun LiveScreen(
                  */
 
                 item {
-
                     Spacer(
-                        modifier =
-                            Modifier.height(
-                                20.dp
-                            )
+                        modifier = Modifier.height(20.dp)
                     )
                 }
+            } // LazyColumn
+            } // else (van élő meccs)
+        } // Column
+    } // Scaffold content
+}
+
+
+@Composable
+private fun LiveSearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = "🔍", fontSize = 15.sp)
+        Spacer(modifier = Modifier.width(10.dp))
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            textStyle = TextStyle(
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 15.sp
+            ),
+            cursorBrush = SolidColor(AccentGreen),
+            modifier = Modifier.weight(1f),
+            decorationBox = { inner ->
+                if (query.isEmpty()) {
+                    Text(
+                        text = "Csapat vagy bajnokság…",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 15.sp
+                    )
+                }
+                inner()
             }
+        )
+        if (query.isNotEmpty()) {
+            Text(
+                text = "✕",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .clickable { onQueryChange("") }
+                    .padding(start = 8.dp)
+            )
         }
+        Text(
+            text = "Bezár",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = AccentGreen,
+            modifier = Modifier
+                .clickable(onClick = onClear)
+                .padding(start = 12.dp)
+        )
     }
 }
 
+@Composable
+private fun FavoriteLiveHeader(count: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        LivePulseDot(color = AccentGold)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Kedvenceim élőben",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = AccentGold
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(AccentGold.copy(alpha = 0.18f))
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            Text(
+                text = count.toString(),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = AccentGold
+            )
+        }
+    }
+}
 
 /*
  * ============================================================
