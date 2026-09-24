@@ -151,8 +151,8 @@ object LiveFutarWidgetUpdater {
             views.setViewVisibility(rowId, View.VISIBLE)
             views.setViewVisibility(dotId, if (match.isLive) View.VISIBLE else View.GONE)
 
-            val homeShort = match.homeTeam?.name ?: "?"
-            val awayShort = match.awayTeam?.name ?: "?"
+            val homeShort = match.homeTeam?.displayName ?: "?"
+            val awayShort = match.awayTeam?.displayName ?: "?"
             views.setTextViewText(matchTextId, "$homeShort – $awayShort")
 
             val scoreText = when {
