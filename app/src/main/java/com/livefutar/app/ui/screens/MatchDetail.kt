@@ -655,7 +655,7 @@ private fun TeamBlock(
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = team?.displayName,
+            text = team?.displayName ?: "?",
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
