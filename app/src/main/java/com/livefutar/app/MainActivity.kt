@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
             val pendingMatchId by pendingMatchIdState
             val navController = rememberNavController()
             val backStack by navController.currentBackStackEntryAsState()
-            val currentRoute = backStack?.destination?.route ?: AppScreen.Home.route
+            val currentRoute = backStack?.destination?.route ?: AppScreen.ROUTE_HOME
 
             LiveFutarTheme(themeMode = themeMode, accentKey = accentKey) {
                 // Fő tab betöltés
@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
 
                         NavHost(
                             navController = navController,
-                            startDestination = AppScreen.Home.route,
+                            startDestination = AppScreen.ROUTE_HOME,
                             modifier = Modifier.fillMaxSize()
                         ) {
                             composable(AppScreen.Home.route) {
