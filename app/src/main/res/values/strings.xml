@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Live Futár</string>
+    <string name="nav_matches">Meccsek</string>
+    <string name="nav_live">Élő</string>
+    <string name="nav_videos">Videók</string>
+    <string name="nav_settings">Beállítások</string>
+    <string name="offline_mode">Offline mód</string>
+    <string name="offline_subtitle">Utolsó mentett adatok</string>
+    <string name="retry">Újrapróbálkozás</string>
+    <string name="settings">Beállítások</string>
+    <string name="loading_match">Meccs betöltése…</string>
+    <string name="theme_section">Megjelenés</string>
+    <string name="theme_dark">Sötét</string>
+    <string name="theme_light">Világos</string>
+    <string name="theme_system">Rendszer</string>
+    <string name="notify_favorites">Kedvenc meccsek értesítése</string>
+    <string name="notify_favorites_sub">Gól, kezdés és vége – appban és háttérben</string>
+    <string name="about">Névjegy</string>
+    <string name="version_label">Verzió 1.8</string>
+    <string name="no_odds">Nincs elérhető odds</string>
+    <string name="share_match">Meccs megosztása</string>
+    <string name="privacy_title">Adatvédelem</string>
+</resources>
