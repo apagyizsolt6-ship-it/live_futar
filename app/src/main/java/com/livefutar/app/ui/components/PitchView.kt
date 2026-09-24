@@ -6,8 +6,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,27 +20,36 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.livefutar.app.model.MatchEventModel
 
 /**
- * Esemény-alapú, animált "pálya" nézet. FONTOS: ez NEM valós labda/játékos
- * pozíció-követés (ehhez az API nem ad koordináta-adatot) - a gólok/lapok/
- * cserék a csapat és a percek alapján, stilizáltan jelennek meg a megfelelő
- * pálya-oldalon, animálva, ahogy az esemény adat megérkezik.
+ * Esemény-alapú, animált pálya nézet.
+ * NEM valós labdakövetés – stilizált pozíció a csapat + perc alapján.
+ * Marker koppintásra tooltip jelenik meg.
  */
 @Composable
 fun PitchView(
@@ -46,21 +59,64 @@ fun PitchView(
     val markers = remember(events, homeTeamId) {
         buildMarkers(events, homeTeamId)
     }
+    var selectedKey by remember { mutableStateOf<String?>(null) }
+    val selected = markers.find { it.key == selectedKey }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1.55f)
+                .clip(RoundedCornerShape(12.dp))
         ) {
             PitchBackground()
 
             markers.forEach { marker ->
-                PitchMarkerIcon(marker, maxWidth, maxHeight)
+                PitchMarkerIcon(
+                    marker = marker,
+                    pitchWidth = maxWidth,
+                    pitchHeight = maxHeight,
+                    selected = marker.key == selectedKey,
+                    onClick = {
+                        selectedKey = if (selectedKey == marker.key) null else marker.key
+                    }
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
+
+        if (selected != null) {
+            val ev = selected.event
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = ev.icon, fontSize = 20.sp)
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "${ev.time ?: "–"}' · ${ev.typeLabel}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        text = listOfNotNull(
+                            ev.player?.takeIf { it.isNotBlank() },
+                            ev.team?.name,
+                            ev.assist?.let { "gólpassz: $it" }
+                        ).joinToString(" · ").ifBlank { "Esemény" },
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         if (markers.isEmpty()) {
             Text(
@@ -85,13 +141,6 @@ fun PitchView(
     }
 }
 
-private data class PitchMarker(
-    val event: MatchEventModel,
-    val key: String,
-    val xFraction: Float,
-    val yFraction: Float
-)
-
 @Composable
 private fun PitchBackground() {
     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -115,24 +164,20 @@ private fun PitchBackground() {
             size = Size(size.width - edge * 2, size.height - edge * 2),
             style = Stroke(width = strokeWidth)
         )
-
         drawLine(
             color = lineColor,
             start = Offset(size.width / 2, edge),
             end = Offset(size.width / 2, size.height - edge),
             strokeWidth = strokeWidth
         )
-
         drawCircle(
             color = lineColor,
             radius = size.height * 0.16f,
             center = Offset(size.width / 2, size.height / 2),
             style = Stroke(width = strokeWidth)
         )
-
         val boxWidth = size.width * 0.14f
         val boxHeight = size.height * 0.5f
-
         drawRect(
             color = lineColor,
             topLeft = Offset(edge, (size.height - boxHeight) / 2),
@@ -149,7 +194,13 @@ private fun PitchBackground() {
 }
 
 @Composable
-private fun PitchMarkerIcon(marker: PitchMarker, pitchWidth: Dp, pitchHeight: Dp) {
+private fun PitchMarkerIcon(
+    marker: PitchMarker,
+    pitchWidth: Dp,
+    pitchHeight: Dp,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
     val visibleState = remember(marker.key) { MutableTransitionState(false) }
 
     LaunchedEffect(marker.key) {
@@ -159,12 +210,30 @@ private fun PitchMarkerIcon(marker: PitchMarker, pitchWidth: Dp, pitchHeight: Dp
     AnimatedVisibility(
         visibleState = visibleState,
         enter = scaleIn(animationSpec = tween(450)) + fadeIn(animationSpec = tween(450)),
-        modifier = Modifier.offset(
-            x = pitchWidth * marker.xFraction - 10.dp,
-            y = pitchHeight * marker.yFraction - 10.dp
-        )
+        modifier = Modifier
+            .offset(
+                x = pitchWidth * marker.xFraction - 14.dp,
+                y = pitchHeight * marker.yFraction - 14.dp
+            )
     ) {
-        Text(text = marker.event.icon, fontSize = 18.sp)
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(
+                    if (selected) Color.White.copy(alpha = 0.35f)
+                    else Color.Black.copy(alpha = 0.25f)
+                )
+                .border(
+                    width = if (selected) 2.dp else 1.dp,
+                    color = if (selected) Color.White else Color.White.copy(alpha = 0.4f),
+                    shape = CircleShape
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = marker.event.icon, fontSize = 14.sp)
+        }
     }
 }
 
@@ -176,6 +245,13 @@ private fun LegendItem(icon: String, label: String) {
         Text(text = label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
+
+private data class PitchMarker(
+    val event: MatchEventModel,
+    val key: String,
+    val xFraction: Float,
+    val yFraction: Float
+)
 
 private fun buildMarkers(events: List<MatchEventModel>, homeTeamId: Long?): List<PitchMarker> {
     val relevant = events.filter {
@@ -192,7 +268,6 @@ private fun buildMarkers(events: List<MatchEventModel>, homeTeamId: Long?): List
         } else {
             0.85f - progress * 0.35f
         }
-
         val yFraction = 0.15f + (index % 4) * 0.22f
 
         PitchMarker(
