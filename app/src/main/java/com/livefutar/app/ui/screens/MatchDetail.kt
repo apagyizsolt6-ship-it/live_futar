@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -293,7 +294,11 @@ fun MatchDetailScreen(
                 )
         ) {
 
-            MatchScoreHeader(match, halfTimeScore = HalfTimeScoreCache.get(match.id))
+            MatchScoreHeader(
+                match = match,
+                events = events,
+                halfTimeScore = HalfTimeScoreCache.get(match.id)
+            )
 
             ScrollableTabRow(
                 selectedTabIndex =
@@ -320,16 +325,16 @@ fun MatchDetailScreen(
                                 text =
                                     when (tab) {
                                         DetailTab.OVERVIEW ->
-                                            "Osszegzes"
+                                            "Összegzés"
 
                                         DetailTab.PITCH ->
-                                            "Palya"
+                                            "Pálya"
 
                                         DetailTab.STATS ->
                                             "Stat"
 
                                         DetailTab.LINEUP ->
-                                            "Felallas"
+                                            "Felállás"
 
                                         DetailTab.ODDS ->
                                             "Odds"
@@ -427,80 +432,60 @@ fun MatchDetailScreen(
 @Composable
 private fun MatchScoreHeader(
     match: MatchModel,
+    events: List<MatchEventModel> = emptyList(),
     halfTimeScore: String? = null
 ) {
     val borderColor =
         if (match.isLive) {
             AccentGreen.copy(alpha = 0.55f)
         } else {
-            MaterialTheme
-                .colorScheme
-                .outline
-                .copy(alpha = 0.3f)
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
         }
+
+    val goalMinutes = events
+        .filter { it.type in setOf("Goal", "Penalty", "Own Goal") }
+        .mapNotNull { it.time }
+        .distinct()
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(12.dp)
-            .border(
-                1.5.dp,
-                borderColor,
-                RoundedCornerShape(16.dp)
-            ),
-
+            .border(1.5.dp, borderColor, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    MaterialTheme.colorScheme.surface
-            )
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-
-            horizontalAlignment =
-                Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            Row(
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 if (match.isLive) {
-
                     Box(
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
                             .background(AccentGreen)
                     )
-
-                    Spacer(
-                        modifier = Modifier.width(6.dp)
-                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                 }
-
                 Text(
-                    text =
-                        if (match.isLive) {
-                            "ÉLŐ " + (match.liveMinuteLabel ?: "")
-                        } else {
-                            match.statusLabel
-                        },
+                    text = if (match.isLive) {
+                        "ÉLŐ " + (match.liveMinuteLabel ?: "")
+                    } else {
+                        match.statusLabel
+                    },
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    color =
-                        if (match.isLive) {
-                            AccentGreen
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
+                    color = if (match.isLive) {
+                        AccentGreen
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
             }
 
@@ -617,6 +602,17 @@ private fun MatchScoreHeader(
                     )
                 }
             }
+
+            if (goalMinutes.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = goalMinutes.joinToString("  ·  ") { "$it'" },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = AccentGreen,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -626,14 +622,12 @@ private fun TeamBlock(
     team: TeamModel?,
     modifier: Modifier = Modifier
 ) {
+    val monogram = teamMonogram(team?.name)
     Column(
         modifier = modifier,
-        horizontalAlignment =
-            Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
         if (!team?.logo.isNullOrBlank()) {
-
             AsyncImage(
                 model = team?.logo,
                 contentDescription = null,
@@ -643,34 +637,23 @@ private fun TeamBlock(
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
                 contentScale = ContentScale.Fit
             )
-
         } else {
-
             Box(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(
-                        MaterialTheme
-                            .colorScheme
-                            .surfaceVariant
-                    ),
-
-                contentAlignment =
-                    Alignment.Center
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
             ) {
-
                 Text(
-                    text = "o",
-                    fontSize = 22.sp
+                    text = monogram,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
-
-        Spacer(
-            modifier = Modifier.height(6.dp)
-        )
-
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = team?.name ?: "?",
             fontSize = 13.sp,
@@ -682,6 +665,16 @@ private fun TeamBlock(
     }
 }
 
+private fun teamMonogram(name: String?): String {
+    if (name.isNullOrBlank()) return "?"
+    val parts = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    return when {
+        parts.size >= 2 ->
+            parts.take(2).map { it.first().uppercaseChar() }.joinToString("")
+        else -> name.take(2).uppercase()
+    }
+}
+
 @Composable
 private fun OverviewTab(
     events: List<MatchEventModel>,
@@ -690,74 +683,58 @@ private fun OverviewTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(
-                rememberScrollState()
-            )
+            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-
         val yellowHome = events.count { it.type == "Yellow Card" && it.team?.id == match.homeTeam?.id }
         val yellowAway = events.count { it.type == "Yellow Card" && it.team?.id == match.awayTeam?.id }
         val redHome = events.count { it.type == "Red Card" && it.team?.id == match.homeTeam?.id }
         val redAway = events.count { it.type == "Red Card" && it.team?.id == match.awayTeam?.id }
 
         if (yellowHome + yellowAway + redHome + redAway > 0) {
-            Text(
-                text = "Lapok",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
+            Text("Lapok", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(10.dp))
-            CardsSummaryRow(
-                label = "🟨 Sárga",
-                homeValue = yellowHome,
-                awayValue = yellowAway
-            )
+            CardsSummaryRow(label = "🟨 Sárga", homeValue = yellowHome, awayValue = yellowAway)
             Spacer(modifier = Modifier.height(6.dp))
-            CardsSummaryRow(
-                label = "🟥 Piros",
-                homeValue = redHome,
-                awayValue = redAway
-            )
+            CardsSummaryRow(label = "🟥 Piros", homeValue = redHome, awayValue = redAway)
             Spacer(modifier = Modifier.height(20.dp))
         }
 
-        Text(
-            text = "Esemenyek",
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp
-        )
-
-        Spacer(
-            modifier = Modifier.height(10.dp)
-        )
+        Text("Események", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(12.dp))
 
         if (events.isEmpty()) {
-
             Text(
-                text = "Meg nincsenek esemenyek",
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant,
+                text = "Még nincsenek események",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
-
         } else {
-
+            val homeId = match.homeTeam?.id
+            var homeGoals = 0
+            var awayGoals = 0
             events.forEach { event ->
-
-                EventRow(event)
-
-                Spacer(
-                    modifier = Modifier.height(6.dp)
+                val isHome = event.team?.id == homeId
+                val isGoal = event.type in setOf("Goal", "Penalty")
+                val isOwnGoal = event.type == "Own Goal"
+                if (isGoal) {
+                    if (isHome) homeGoals++ else awayGoals++
+                } else if (isOwnGoal) {
+                    // Own goal credits the opposing side
+                    if (isHome) awayGoals++ else homeGoals++
+                }
+                val scoreAfter = if (isGoal || isOwnGoal) "$homeGoals–$awayGoals" else null
+                TimelineEventRow(
+                    event = event,
+                    isHome = isHome,
+                    scoreAfter = scoreAfter,
+                    homeName = match.homeTeam?.name ?: "Hazai",
+                    awayName = match.awayTeam?.name ?: "Vendég"
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
-
-        Spacer(
-            modifier = Modifier.height(24.dp)
-        )
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -773,7 +750,6 @@ private fun PitchTab(
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-
         if (predictions.isNotEmpty()) {
             Text(
                 text = "Győzelmi esély (élő)",
@@ -796,7 +772,7 @@ private fun PitchTab(
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Nem valós labdakövetés - az események stilizáltan, a csapat és a perc alapján jelennek meg.",
+            text = "Stilizált nézet – az események a csapat és a perc alapján. Koppints egy markerre a részletekért.",
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -806,6 +782,56 @@ private fun PitchTab(
             events = events,
             homeTeamId = match.homeTeam?.id
         )
+
+        val goals = events.filter {
+            it.type in setOf("Goal", "Penalty", "Own Goal")
+        }
+        if (goals.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = "Gólok",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            goals.forEach { g ->
+                val isHome = g.team?.id == match.homeTeam?.id
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = g.time?.let { "$it'" } ?: "–",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = AccentGreen,
+                        modifier = Modifier.width(40.dp)
+                    )
+                    Text(text = g.icon, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = g.player?.takeIf { it.isNotBlank() }
+                                ?: g.team?.name
+                                ?: if (isHome) match.homeTeam?.name ?: "Hazai"
+                                else match.awayTeam?.name ?: "Vendég",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = g.typeLabel + if (isHome) " · hazai" else " · vendég",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
     }
@@ -848,130 +874,125 @@ private fun CardsSummaryRow(
 }
 
 @Composable
-private fun EventRow(
-    ev: MatchEventModel
+private fun TimelineEventRow(
+    event: MatchEventModel,
+    isHome: Boolean,
+    scoreAfter: String?,
+    homeName: String,
+    awayName: String
 ) {
+    val accent = when (event.type) {
+        "Goal", "Penalty" -> AccentGreen
+        "Own Goal" -> AccentGold
+        "Yellow Card" -> Color(0xFFFFD600)
+        "Red Card" -> Color(0xFFFF5252)
+        "Substitution" -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val title = event.player?.takeIf { it.isNotBlank() }
+        ?: event.team?.name
+        ?: if (isHome) homeName else awayName
+    val subtitle = buildString {
+        append(event.typeLabel)
+        if (!event.assist.isNullOrBlank()) append(" · gólpassz: ${event.assist}")
+        if (!event.substituted.isNullOrBlank()) append(" · ${event.substituted}")
+    }
+
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(
-                RoundedCornerShape(10.dp)
-            )
-            .background(
-                MaterialTheme.colorScheme.surface
-            )
-            .padding(
-                horizontal = 12.dp,
-                vertical = 8.dp
-            ),
-
-        verticalAlignment =
-            Alignment.CenterVertically
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-
-        Text(
-            text = ev.time ?: "-",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color =
-                MaterialTheme
-                    .colorScheme
-                    .primary,
-
-            modifier = Modifier.width(40.dp)
-        )
-
-        Text(
-            text =
-                when (ev.type) {
-                    "Goal",
-                    "Penalty" -> "G"
-
-                    "Own Goal" -> "OG"
-
-                    "Yellow Card" -> "S"
-
-                    "Red Card" -> "P"
-
-                    "Substitution" -> "Cs"
-
-                    else -> "*"
-                },
-
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-
-            modifier =
-                Modifier.padding(end = 8.dp)
-        )
-
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-
-            Text(
-                text =
-                    ev.player
-                        ?: ev.type
-                        ?: "Esemeny",
-
-                fontSize = 13.sp,
-                fontWeight =
-                    FontWeight.Medium
-            )
-
-            if (!ev.assist.isNullOrBlank()) {
-
-                Text(
-                    text =
-                        "Golpassz: " +
-                            ev.assist,
-
-                    fontSize = 11.sp,
-
-                    color =
-                        MaterialTheme
-                            .colorScheme
-                            .onSurfaceVariant
+        // Home side
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+            if (isHome) {
+                EventChip(
+                    title = title,
+                    subtitle = subtitle,
+                    scoreAfter = scoreAfter,
+                    accent = accent,
+                    alignEnd = true
                 )
             }
         }
 
+        // Center spine
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.width(52.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(accent.copy(alpha = 0.18f))
+                    .border(1.5.dp, accent.copy(alpha = 0.7f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = event.icon, fontSize = 14.sp)
+            }
+            Text(
+                text = event.time?.let { "$it'" } ?: "–",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        // Away side
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (!isHome) {
+                EventChip(
+                    title = title,
+                    subtitle = subtitle,
+                    scoreAfter = scoreAfter,
+                    accent = accent,
+                    alignEnd = false
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventChip(
+    title: String,
+    subtitle: String,
+    scoreAfter: String?,
+    accent: Color,
+    alignEnd: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, accent.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start
+    ) {
+        if (scoreAfter != null) {
+            Text(
+                text = scoreAfter,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = AccentGreen
+            )
+        }
         Text(
-            text =
-                when (ev.type) {
-                    "Goal" ->
-                        "Gol"
-
-                    "Penalty" ->
-                        "Bunteto"
-
-                    "Own Goal" ->
-                        "OnGol"
-
-                    "Yellow Card" ->
-                        "Sarga"
-
-                    "Red Card" ->
-                        "Piros"
-
-                    "Substitution" ->
-                        "Csere"
-
-                    "Missed Penalty" ->
-                        "Kihagyott 11-es"
-
-                    else ->
-                        ev.type ?: ""
-                },
-
-            fontSize = 11.sp,
-
-            color =
-                MaterialTheme
-                    .colorScheme
-                    .onSurfaceVariant
+            text = title,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
+        if (subtitle.isNotBlank()) {
+            Text(
+                text = subtitle,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -982,200 +1003,149 @@ private fun StatsTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(
-                rememberScrollState()
-            )
+            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-
         if (statistics.isEmpty()) {
-
             Text(
-                text =
-                    "Nincs elerheto statisztika ehhez a meccshez",
-
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant
+                text = "Nincs elérhető statisztika ehhez a meccshez",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-
             return@Column
         }
 
-        val homeStats =
-            statistics
-                .getOrNull(0)
-                ?.statistics
-                .orEmpty()
-
-        val awayStats =
-            statistics
-                .getOrNull(1)
-                ?.statistics
-                .orEmpty()
-
-        val names =
-            (
-                homeStats.mapNotNull {
-                    it.displayName ?: it.name
-                } +
-                    awayStats.mapNotNull {
-                        it.displayName ?: it.name
-                    }
-                )
-                .distinct()
+        val homeStats = statistics.getOrNull(0)?.statistics.orEmpty()
+        val awayStats = statistics.getOrNull(1)?.statistics.orEmpty()
+        val names = (
+            homeStats.mapNotNull { it.displayName ?: it.name } +
+                awayStats.mapNotNull { it.displayName ?: it.name }
+            ).distinct()
 
         names.forEach { name ->
-
-            val homeValue =
-                homeStats
-                    .find {
-                        (it.displayName ?: it.name) == name
-                    }
-                    ?.value
-                    ?.toString()
-                    ?: "-"
-
-            val awayValue =
-                awayStats
-                    .find {
-                        (it.displayName ?: it.name) == name
-                    }
-                    ?.value
-                    ?.toString()
-                    ?: "-"
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp),
-
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-
-                Text(
-                    text = homeValue,
-
-                    modifier =
-                        Modifier.weight(1f),
-
-                    textAlign =
-                        TextAlign.End,
-
-                    fontWeight =
-                        FontWeight.Bold,
-
-                    fontSize = 14.sp
-                )
-
-                Text(
-                    text = huStatName(name),
-
-                    modifier =
-                        Modifier.weight(1.4f),
-
-                    textAlign =
-                        TextAlign.Center,
-
-                    fontSize = 12.sp,
-
-                    color =
-                        MaterialTheme
-                            .colorScheme
-                            .onSurfaceVariant
-                )
-
-                Text(
-                    text = awayValue,
-
-                    modifier =
-                        Modifier.weight(1f),
-
-                    textAlign =
-                        TextAlign.Start,
-
-                    fontWeight =
-                        FontWeight.Bold,
-
-                    fontSize = 14.sp
-                )
-            }
-
-            Divider(
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .outline
-                        .copy(alpha = 0.2f)
+            val homeRaw = homeStats.find { (it.displayName ?: it.name) == name }?.value
+            val awayRaw = awayStats.find { (it.displayName ?: it.name) == name }?.value
+            val homeNum = parseStatNumber(homeRaw)
+            val awayNum = parseStatNumber(awayRaw)
+            StatBarRow(
+                label = huStatName(name),
+                homeValue = homeRaw?.toString() ?: "–",
+                awayValue = awayRaw?.toString() ?: "–",
+                homeNum = homeNum,
+                awayNum = awayNum
             )
+            Spacer(modifier = Modifier.height(10.dp))
         }
-
-        Spacer(
-            modifier = Modifier.height(24.dp)
-        )
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
-private fun huStatName(
-    name: String
-): String =
+@Composable
+private fun StatBarRow(
+    label: String,
+    homeValue: String,
+    awayValue: String,
+    homeNum: Float?,
+    awayNum: Float?
+) {
+    val h = homeNum ?: 0f
+    val a = awayNum ?: 0f
+    val total = (h + a).coerceAtLeast(0.001f)
+    val homeFrac = h / total
+    val awayFrac = a / total
+    val homeWins = h >= a
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = homeValue,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Start,
+                fontWeight = if (homeWins) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 14.sp,
+                color = if (homeWins) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = label,
+                modifier = Modifier.weight(1.6f),
+                textAlign = TextAlign.Center,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = awayValue,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.End,
+                fontWeight = if (!homeWins) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 14.sp,
+                color = if (!homeWins) AccentGreen else MaterialTheme.colorScheme.onSurface
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(homeFrac.coerceAtLeast(0.02f))
+                    .fillMaxSize()
+                    .background(
+                        if (homeWins) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                    )
+            )
+            Box(
+                modifier = Modifier
+                    .weight(awayFrac.coerceAtLeast(0.02f))
+                    .fillMaxSize()
+                    .background(
+                        if (!homeWins) AccentGreen
+                        else AccentGreen.copy(alpha = 0.45f)
+                    )
+            )
+        }
+    }
+}
+
+private fun parseStatNumber(value: Any?): Float? {
+    return when (value) {
+        null -> null
+        is Number -> value.toFloat()
+        is String -> value.replace("%", "").replace(",", ".").toFloatOrNull()
+        else -> value.toString().replace("%", "").toFloatOrNull()
+    }
+}
+
+private fun huStatName(name: String): String =
     when (name.lowercase()) {
-
-        "ball possession",
-        "possession" ->
-            "Labdabirtoklas"
-
-        "total shots",
-        "shots" ->
-            "Lovesek"
-
-        "shots on goal",
-        "shots on target" ->
-            "Kapura loves"
-
-        "shots off goal",
-        "shots off target" ->
-            "Kapu melle"
-
-        "blocked shots" ->
-            "Blokkolt loves"
-
-        "corner kicks",
-        "corners" ->
-            "Szogletek"
-
-        "offsides" ->
-            "Les"
-
-        "fouls" ->
-            "Szabalysertesek"
-
-        "yellow cards" ->
-            "Sarga lapok"
-
-        "red cards" ->
-            "Piros lapok"
-
-        "goalkeeper saves",
-        "saves" ->
-            "Vedesek"
-
-        "total passes",
-        "passes" ->
-            "Passzok"
-
-        "passes accurate",
-        "accurate passes" ->
-            "Pontos passz"
-
-        "expected goals",
-        "xg" ->
-            "xG"
-
-        else ->
-            name
+        "ball possession", "possession" -> "Labdabirtoklás"
+        "total shots", "shots" -> "Lövések"
+        "shots on goal", "shots on target" -> "Kapura lövés"
+        "shots off goal", "shots off target" -> "Kapu mellé"
+        "blocked shots" -> "Blokkolt lövés"
+        "corner kicks", "corners" -> "Szögletek"
+        "offsides" -> "Les"
+        "fouls" -> "Szabálytalanságok"
+        "yellow cards" -> "Sárga lapok"
+        "red cards" -> "Piros lapok"
+        "goalkeeper saves", "saves" -> "Védések"
+        "total passes", "passes" -> "Passzok"
+        "passes accurate", "accurate passes" -> "Pontos passz"
+        "expected goals", "xg" -> "xG"
+        "attacks" -> "Támadások"
+        "dangerous attacks" -> "Veszélyes támadások"
+        "free kicks" -> "Szabadrúgások"
+        "throw-ins", "throw ins" -> "Bedobások"
+        "goal kicks" -> "Kirúgások"
+        else -> name
     }
 
 @Composable
@@ -1186,57 +1156,60 @@ private fun LineupTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(
-                rememberScrollState()
-            )
+            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
+        val homeEmpty = lineups?.home?.initialLineup.isNullOrEmpty()
+        val awayEmpty = lineups?.away?.initialLineup.isNullOrEmpty()
 
-        if (lineups == null) {
-
-            Text(
-                text =
-                    "A felallas meg nem elerheto - altalaban 30 perccel a kezdes elott",
-
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant,
-
-                textAlign =
-                    TextAlign.Center,
-
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp)
-            )
-
+        if (lineups == null || (homeEmpty && awayEmpty)) {
+            LineupEmptyState()
             return@Column
         }
 
         TeamLineupBlock(
-            teamName =
-                match.homeTeam?.name
-                    ?: "Hazai",
-
+            teamName = match.homeTeam?.name ?: "Hazai",
             lineup = lineups.home
         )
-
-        Spacer(
-            modifier = Modifier.height(20.dp)
-        )
-
+        Spacer(modifier = Modifier.height(20.dp))
         TeamLineupBlock(
-            teamName =
-                match.awayTeam?.name
-                    ?: "Vendeg",
-
+            teamName = match.awayTeam?.name ?: "Vendég",
             lineup = lineups.away
         )
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
 
-        Spacer(
-            modifier = Modifier.height(24.dp)
+@Composable
+private fun LineupEmptyState() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("📋", fontSize = 32.sp)
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Nincs felállás ehhez a meccshez",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Az API gyakran nem ad kezdőcsapatot alsóbb ligákban, vagy csak a kezdés előtt ~30 perccel.",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -1246,110 +1219,54 @@ private fun TeamLineupBlock(
     teamName: String,
     lineup: TeamLineup?
 ) {
-    val formation =
-        lineup?.formation
+    val formation = lineup?.formation
+    val title = if (formation.isNullOrBlank()) teamName else "$teamName · $formation"
 
-    val title =
-        if (formation.isNullOrBlank()) {
-            teamName
-        } else {
-            "$teamName ($formation)"
-        }
-
-    Text(
-        text = title,
-        fontWeight = FontWeight.Bold,
-        fontSize = 15.sp
-    )
-
-    Spacer(
-        modifier = Modifier.height(8.dp)
-    )
+    Text(text = title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+    Spacer(modifier = Modifier.height(8.dp))
 
     if (lineup?.initialLineup.isNullOrEmpty()) {
-
         Text(
-            text = "Nincs kezdo",
-            color =
-                MaterialTheme
-                    .colorScheme
-                    .onSurfaceVariant,
+            text = "Nincs kezdő adat",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp
         )
-
     } else {
-
         lineup?.initialLineup?.forEach { row ->
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 2.dp),
-
-                horizontalArrangement =
-                    Arrangement.spacedBy(6.dp)
+                    .padding(vertical = 3.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-
                 row.forEach { player ->
-
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(
-                                RoundedCornerShape(8.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                RoundedCornerShape(10.dp)
                             )
-                            .background(
-                                MaterialTheme
-                                    .colorScheme
-                                    .surface
-                            )
-                            .padding(6.dp)
+                            .padding(8.dp)
                     ) {
-
                         Column {
-
-                            val number =
-                                player.number
-                                    ?.toString()
-                                    ?: ""
-
-                            val playerName =
-                                player.name ?: ""
-
+                            val number = player.number?.toString() ?: ""
+                            val playerName = player.name ?: ""
                             Text(
-                                text =
-                                    (
-                                        number +
-                                            " " +
-                                            playerName
-                                        ).trim(),
-
+                                text = listOf(number, playerName).filter { it.isNotBlank() }.joinToString(" "),
                                 fontSize = 12.sp,
-
-                                fontWeight =
-                                    FontWeight.Medium,
-
+                                fontWeight = FontWeight.Medium,
                                 maxLines = 1,
-
-                                overflow =
-                                    TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis
                             )
-
-                            if (
-                                !player.position
-                                    .isNullOrBlank()
-                            ) {
-
+                            if (!player.position.isNullOrBlank()) {
                                 Text(
-                                    text =
-                                        player.position,
-
+                                    text = player.position,
                                     fontSize = 10.sp,
-
-                                    color =
-                                        MaterialTheme
-                                            .colorScheme
-                                            .onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }

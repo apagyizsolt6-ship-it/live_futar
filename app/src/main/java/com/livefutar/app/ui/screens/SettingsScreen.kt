@@ -239,7 +239,7 @@ fun SettingsScreen(
                     Text("Live Futár", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Verzió 1.4 · Prémium élő eredmények",
+                        "Verzió 1.5 · Prémium élő eredmények",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
