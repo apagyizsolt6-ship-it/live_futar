@@ -1,10 +1,13 @@
 package com.livefutar.app.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,14 +34,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,6 +57,7 @@ import com.livefutar.app.data.BestOdds
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
+import com.livefutar.app.util.Haptics
 import com.livefutar.app.ui.theme.LiveBorder
 import com.livefutar.app.ui.theme.LiveGlow
 import java.util.Locale
@@ -157,19 +167,20 @@ fun MatchCard(
                             OddsMiniRow(oddsSummary)
                         }
                     } else {
-                        val scoreColor = if (isLive) AccentGreen else MaterialTheme.colorScheme.onSurface
-                        Text(
-                            text = match.homeScoreDisplay,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = scoreColor
+                        val baseColor =
+                            if (isLive) AccentGreen else MaterialTheme.colorScheme.onSurface
+                        AnimatedScore(
+                            score = match.homeScoreDisplay,
+                            baseColor = baseColor,
+                            matchId = match.id,
+                            side = "home"
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = match.awayScoreDisplay,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = scoreColor
+                        AnimatedScore(
+                            score = match.awayScoreDisplay,
+                            baseColor = baseColor,
+                            matchId = match.id,
+                            side = "away"
                         )
                     }
                 }
@@ -197,12 +208,52 @@ private fun OddsMiniRow(odds: BestOdds) {
 }
 
 @Composable
+private fun AnimatedScore(
+    score: String,
+    baseColor: Color,
+    matchId: Long,
+    side: String
+) {
+    val haptic = LocalHapticFeedback.current
+    var previous by remember(matchId, side) { mutableStateOf(score) }
+    val scale = remember { Animatable(1f) }
+    var flash by remember { mutableStateOf(false) }
+
+    LaunchedEffect(score) {
+        if (previous != score && previous != "-" && score != "-") {
+            flash = true
+            Haptics.confirm(haptic)
+            scale.snapTo(1f)
+            scale.animateTo(1.35f, animationSpec = spring(dampingRatio = 0.45f, stiffness = 500f))
+            scale.animateTo(1f, animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f))
+            flash = false
+        }
+        previous = score
+    }
+
+    val color by animateColorAsState(
+        targetValue = if (flash) AccentGold else baseColor,
+        animationSpec = tween(180),
+        label = "scoreColor"
+    )
+
+    Text(
+        text = score,
+        fontSize = 20.sp,
+        fontWeight = FontWeight.Bold,
+        color = color,
+        modifier = Modifier.scale(scale.value)
+    )
+}
+
+@Composable
 private fun TeamRow(
     logoUrl: String?,
     name: String,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
@@ -242,7 +293,10 @@ private fun TeamRow(
             tint = if (isFavorite) AccentGold else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             modifier = Modifier
                 .size(20.dp)
-                .clickable { onToggleFavorite() }
+                .clickable {
+                    Haptics.tick(haptic)
+                    onToggleFavorite()
+                }
         )
     }
 }
