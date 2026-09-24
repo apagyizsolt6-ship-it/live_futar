@@ -30,7 +30,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import com.livefutar.app.util.Haptics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -429,8 +431,12 @@ fun HomeScreen(
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                    val haptic = LocalHapticFeedback.current
                     IconButton(
-                        onClick = onRefresh,
+                        onClick = {
+                            Haptics.tick(haptic)
+                            onRefresh()
+                        },
                         enabled = !isRefreshing
                     ) {
                         Icon(
