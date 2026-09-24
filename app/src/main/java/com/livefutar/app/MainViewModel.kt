@@ -284,8 +284,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (!isFavoriteMatch) return@forEach
 
             val prev = previous[match.id] ?: return@forEach
-            val homeName = match.homeTeam?.name ?: "Hazai"
-            val awayName = match.awayTeam?.name ?: "Vendég"
+            val homeName = match.homeTeam?.displayName ?: "Hazai"
+            val awayName = match.awayTeam?.displayName ?: "Vendég"
 
             if (prev.isNotStarted && match.isLive) {
                 NotificationHelper.notifyKickoff(
