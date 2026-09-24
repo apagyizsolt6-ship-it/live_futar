@@ -12,8 +12,9 @@ object PreferencesManager {
     private fun getPrefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
+    /** Alapértelmezett: sötét (foci app hangulat). */
     fun getThemeMode(context: Context): String =
-        getPrefs(context).getString(KEY_THEME_MODE, "system") ?: "system"
+        getPrefs(context).getString(KEY_THEME_MODE, "dark") ?: "dark"
 
     fun setThemeMode(context: Context, mode: String) {
         getPrefs(context).edit().putString(KEY_THEME_MODE, mode).apply()
