@@ -11,8 +11,8 @@ android {
         applicationId "com.livefutar.app"
         minSdk 24
         targetSdk 34
-        versionCode 8
-        versionName "1.6"
+        versionCode 9
+        versionName "1.7"
     }
 
     buildFeatures {
@@ -56,4 +56,9 @@ dependencies {
 
     // Csapat/highlight logók és képek betöltéséhez
     implementation 'io.coil-kt:coil-compose:2.5.0'
+
+    // Háttér sync + navigáció
+    implementation 'androidx.work:work-runtime-ktx:2.9.0'
+    implementation 'androidx.navigation:navigation-compose:2.7.6'
 }
+
