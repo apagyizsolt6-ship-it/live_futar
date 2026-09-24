@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,8 +57,16 @@ class MainActivity : ComponentActivity() {
     private var pendingMatchIdState = mutableStateOf<Long?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
         pendingMatchIdState.value = extractMatchId(intent)
+
+        // Splash addig marad, amíg az első betöltés tart (max ~ok, ViewModel dönt)
+        splash.setKeepOnScreenCondition {
+            viewModel.ui.value.isLoading &&
+                viewModel.ui.value.matches.isEmpty() &&
+                viewModel.ui.value.todayMatches.isEmpty()
+        }
 
         setContent {
             val context = androidx.compose.ui.platform.LocalContext.current
