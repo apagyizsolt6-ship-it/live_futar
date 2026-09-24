@@ -50,6 +50,11 @@ fun SettingsScreen(
     ) { granted ->
         notifyFavorites = granted
         PreferencesManager.setNotifyFavorites(context, granted)
+        if (granted) {
+            com.livefutar.app.worker.LiveMatchWorkScheduler.schedule(context)
+        } else {
+            com.livefutar.app.worker.LiveMatchWorkScheduler.cancel(context)
+        }
     }
 
     Scaffold(
@@ -203,7 +208,7 @@ fun SettingsScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            "Gól és kezdés a kedvenc csapataidnál",
+                            "Gól, kezdés és vége – appban és háttérben (~15 perc)",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -216,6 +221,11 @@ fun SettingsScreen(
                             } else {
                                 notifyFavorites = checked
                                 PreferencesManager.setNotifyFavorites(context, checked)
+                                if (checked) {
+                                    com.livefutar.app.worker.LiveMatchWorkScheduler.schedule(context)
+                                } else {
+                                    com.livefutar.app.worker.LiveMatchWorkScheduler.cancel(context)
+                                }
                             }
                         }
                     )
@@ -239,7 +249,7 @@ fun SettingsScreen(
                     Text("Live Futár", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Verzió 1.6 · Prémium élő eredmények",
+                        "Verzió 1.7 · Prémium élő eredmények",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
