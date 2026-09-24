@@ -655,7 +655,7 @@ private fun TeamBlock(
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = team?.name ?: "?",
+            text = team?.displayName,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
@@ -728,8 +728,8 @@ private fun OverviewTab(
                     event = event,
                     isHome = isHome,
                     scoreAfter = scoreAfter,
-                    homeName = match.homeTeam?.name ?: "Hazai",
-                    awayName = match.awayTeam?.name ?: "Vendég"
+                    homeName = match.homeTeam?.displayName ?: "Hazai",
+                    awayName = match.awayTeam?.displayName ?: "Vendég"
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -759,8 +759,8 @@ private fun PitchTab(
             Spacer(modifier = Modifier.height(10.dp))
             MomentumChart(
                 predictions = predictions,
-                homeTeamName = match.homeTeam?.name ?: "Hazai",
-                awayTeamName = match.awayTeam?.name ?: "Vendég"
+                homeTeamName = match.homeTeam?.displayName ?: "Hazai",
+                awayTeamName = match.awayTeam?.displayName ?: "Vendég"
             )
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -817,9 +817,9 @@ private fun PitchTab(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = g.player?.takeIf { it.isNotBlank() }
-                                ?: g.team?.name
-                                ?: if (isHome) match.homeTeam?.name ?: "Hazai"
-                                else match.awayTeam?.name ?: "Vendég",
+                                ?: g.team?.displayName
+                                ?: if (isHome) match.homeTeam?.displayName ?: "Hazai"
+                                else match.awayTeam?.displayName ?: "Vendég",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp
                         )
@@ -890,7 +890,7 @@ private fun TimelineEventRow(
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     val title = event.player?.takeIf { it.isNotBlank() }
-        ?: event.team?.name
+        ?: event.team?.displayName
         ?: if (isHome) homeName else awayName
     val subtitle = buildString {
         append(event.typeLabel)
@@ -1047,11 +1047,11 @@ private fun StatBarRow(
     homeNum: Float?,
     awayNum: Float?
 ) {
-    val h = homeNum ?: 0f
-    val a = awayNum ?: 0f
-    val total = (h + a).coerceAtLeast(0.001f)
-    val homeFrac = h / total
-    val awayFrac = a / total
+    val h = (homeNum ?: 0f).let { if (it.isFinite()) it.coerceAtLeast(0f) else 0f }
+    val a = (awayNum ?: 0f).let { if (it.isFinite()) it.coerceAtLeast(0f) else 0f }
+    val total = (h + a).coerceAtLeast(1f)
+    val homeFrac = (h / total).coerceIn(0.02f, 0.98f)
+    val awayFrac = (1f - homeFrac).coerceIn(0.02f, 0.98f)
     val homeWins = h >= a
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1095,7 +1095,7 @@ private fun StatBarRow(
         ) {
             Box(
                 modifier = Modifier
-                    .weight(homeFrac.coerceAtLeast(0.02f))
+                    .weight(homeFrac)
                     .fillMaxSize()
                     .background(
                         if (homeWins) MaterialTheme.colorScheme.primary
@@ -1104,7 +1104,7 @@ private fun StatBarRow(
             )
             Box(
                 modifier = Modifier
-                    .weight(awayFrac.coerceAtLeast(0.02f))
+                    .weight(awayFrac)
                     .fillMaxSize()
                     .background(
                         if (!homeWins) AccentGreen
@@ -1168,12 +1168,12 @@ private fun LineupTab(
         }
 
         TeamLineupBlock(
-            teamName = match.homeTeam?.name ?: "Hazai",
+            teamName = match.homeTeam?.displayName ?: "Hazai",
             lineup = lineups.home
         )
         Spacer(modifier = Modifier.height(20.dp))
         TeamLineupBlock(
-            teamName = match.awayTeam?.name ?: "Vendég",
+            teamName = match.awayTeam?.displayName ?: "Vendég",
             lineup = lineups.away
         )
         Spacer(modifier = Modifier.height(24.dp))
@@ -1376,12 +1376,12 @@ private fun H2HTab(
 
                 val matchLabel =
                     (
-                        match.homeTeam?.name
+                        match.homeTeam?.displayName
                             ?: "?"
                         ) +
                         " - " +
                         (
-                            match.awayTeam?.name
+                            match.awayTeam?.displayName
                                 ?: "?"
                             )
 

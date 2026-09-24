@@ -193,9 +193,9 @@ fun LiveScreen(
             allLiveMatches
         } else {
             allLiveMatches.filter { match ->
-                val home = match.homeTeam?.name.orEmpty()
+                val home = match.homeTeam?.displayName.orEmpty()
                     .lowercase(Locale.getDefault())
-                val away = match.awayTeam?.name.orEmpty()
+                val away = match.awayTeam?.displayName.orEmpty()
                     .lowercase(Locale.getDefault())
                 val league = match.leagueDisplayName
                     .orEmpty()

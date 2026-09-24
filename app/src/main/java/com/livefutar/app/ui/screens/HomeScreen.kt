@@ -228,8 +228,8 @@ fun HomeScreen(
                 val haystack =
                     normalizeForSort(
                         listOfNotNull(
-                            match.homeTeam?.name,
-                            match.awayTeam?.name,
+                            match.homeTeam?.displayName,
+                            match.awayTeam?.displayName,
                             match.leagueDisplayName
                         ).joinToString(" ")
                     )

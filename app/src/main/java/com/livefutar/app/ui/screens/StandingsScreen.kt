@@ -150,7 +150,7 @@ private fun StandingRowView(row: StandingRow) {
                 Spacer(modifier = Modifier.width(8.dp))
             }
             Text(
-                text = row.team?.name ?: "-",
+                text = row.team?.displayName ?: "-",
                 fontSize = 13.sp,
                 maxLines = 1
             )

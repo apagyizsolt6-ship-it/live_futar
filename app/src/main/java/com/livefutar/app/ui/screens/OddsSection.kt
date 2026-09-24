@@ -553,10 +553,10 @@ private fun OddsMarketCard(
                                 BetSlipSelection(
                                     matchId = match.id,
                                     homeName =
-                                        match.homeTeam?.name
+                                        match.homeTeam?.displayName
                                             ?: "Hazai",
                                     awayName =
-                                        match.awayTeam?.name
+                                        match.awayTeam?.displayName
                                             ?: "Vendég",
                                     leagueName =
                                         match.leagueDisplayName,
@@ -810,10 +810,10 @@ private fun AllOdds(
                                 BetSlipSelection(
                                     matchId = match.id,
                                     homeName =
-                                        match.homeTeam?.name
+                                        match.homeTeam?.displayName
                                             ?: "Hazai",
                                     awayName =
-                                        match.awayTeam?.name
+                                        match.awayTeam?.displayName
                                             ?: "Vendég",
                                     leagueName =
                                         match.leagueDisplayName,
