@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +20,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,16 +29,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.livefutar.app.data.NotificationHelper
 import com.livefutar.app.data.PreferencesManager
-import com.livefutar.app.model.HighlightModel
 import com.livefutar.app.model.LeagueModel
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.LiveFutarBottomBar
 import com.livefutar.app.ui.components.SkeletonMatchList
+import com.livefutar.app.ui.navigation.AppScreen
 import com.livefutar.app.ui.screens.BetSlipScreen
 import com.livefutar.app.ui.screens.HighlightsScreen
 import com.livefutar.app.ui.screens.HomeScreen
@@ -49,6 +57,7 @@ import com.livefutar.app.ui.screens.StandingsScreen
 import com.livefutar.app.ui.screens.VideoPlayerScreen
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.LiveFutarTheme
+import com.livefutar.app.worker.LiveMatchWorkScheduler
 
 class MainActivity : ComponentActivity() {
 
@@ -61,7 +70,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         pendingMatchIdState.value = extractMatchId(intent)
 
-        // Splash addig marad, amíg az első betöltés tart (max ~ok, ViewModel dönt)
+        // Háttér score-watch (WorkManager, ~15 perc)
+        LiveMatchWorkScheduler.schedule(applicationContext)
+
         splash.setKeepOnScreenCondition {
             viewModel.ui.value.isLoading &&
                 viewModel.ui.value.matches.isEmpty() &&
@@ -69,7 +80,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            val context = androidx.compose.ui.platform.LocalContext.current
+            val context = LocalContext.current
             var themeMode by remember {
                 mutableStateOf(PreferencesManager.getThemeMode(context))
             }
@@ -79,39 +90,66 @@ class MainActivity : ComponentActivity() {
 
             val ui by viewModel.ui.collectAsState()
             val pendingMatchId by pendingMatchIdState
+            val navController = rememberNavController()
+            val backStack by navController.currentBackStackEntryAsState()
+            val currentRoute = backStack?.destination?.route ?: AppScreen.Home.route
 
             LiveFutarTheme(themeMode = themeMode, accentKey = accentKey) {
-                var currentScreen by remember { mutableStateOf("home") }
-                var selectedMatch by remember { mutableStateOf<MatchModel?>(null) }
-                var selectedHighlight by remember { mutableStateOf<HighlightModel?>(null) }
-                var standingsLeague by remember { mutableStateOf<LeagueModel?>(null) }
-                var showBetSlip by remember { mutableStateOf(false) }
+                // Fő tab betöltés
+                LaunchedEffect(ui.selectedDate, currentRoute) {
+                    val preferToday = currentRoute == AppScreen.Live.route
+                    if (currentRoute in AppScreen.bottomBarRoutes) {
+                        viewModel.load(
+                            isBackground = false,
+                            preferToday = preferToday
+                        )
+                    }
+                }
 
-                /*
-                 * Adatbetöltés: dátum / képernyő váltáskor.
-                 * preferToday = Élő fül → mindig a mai nap.
-                 */
-                LaunchedEffect(ui.selectedDate, currentScreen) {
-                    viewModel.load(
-                        isBackground = false,
-                        preferToday = currentScreen == "live"
-                    )
+                // Deep link / értesítés → meccs
+                LaunchedEffect(pendingMatchId, ui.matches, ui.todayMatches) {
+                    val id = pendingMatchId ?: return@LaunchedEffect
+                    val found =
+                        ui.todayMatches.find { it.id == id }
+                            ?: ui.matches.find { it.id == id }
+                    if (found != null) {
+                        navController.navigate(AppScreen.MatchDetail.createRoute(id)) {
+                            launchSingleTop = true
+                        }
+                        pendingMatchIdState.value = null
+                    }
                 }
 
                 val liveCount = ui.todayMatches.count { it.isLive }
-                val showBottomBar =
-                    selectedMatch == null &&
-                        selectedHighlight == null &&
-                        standingsLeague == null &&
-                        !showBetSlip
+                val showBottomBar = currentRoute in AppScreen.bottomBarRoutes
 
                 Scaffold(
                     bottomBar = {
                         if (showBottomBar) {
+                            val tab = when (currentRoute) {
+                                AppScreen.Live.route -> "live"
+                                AppScreen.Highlights.route -> "highlights"
+                                AppScreen.Settings.route -> "settings"
+                                else -> "home"
+                            }
                             LiveFutarBottomBar(
-                                currentScreen = currentScreen,
+                                currentScreen = tab,
                                 liveCount = liveCount,
-                                onScreenSelected = { currentScreen = it }
+                                onScreenSelected = { screen ->
+                                    val route = when (screen) {
+                                        "live" -> AppScreen.Live.route
+                                        "highlights" -> AppScreen.Highlights.route
+                                        "settings" -> AppScreen.Settings.route
+                                        else -> AppScreen.Home.route
+                                    }
+                                    navController.navigate(route) {
+                                        popUpTo(AppScreen.Home.route) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
                             )
                         }
                     }
@@ -121,153 +159,237 @@ class MainActivity : ComponentActivity() {
                             .padding(paddingValues)
                             .fillMaxSize()
                     ) {
-                        if (ui.isRefreshing) {
-                            LinearProgressIndicator(
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                        if (ui.isRefreshing && showBottomBar) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                         }
-
-                        if (ui.isOffline && !ui.isLoading) {
+                        if (ui.isOffline && !ui.isLoading && showBottomBar) {
                             OfflineBanner()
                         }
 
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            when {
-                                selectedHighlight != null -> {
-                                    VideoPlayerScreen(
-                                        highlight = selectedHighlight!!,
-                                        onBackClick = { selectedHighlight = null }
-                                    )
-                                }
-
-                                standingsLeague != null -> {
-                                    StandingsScreen(
-                                        league = standingsLeague!!,
-                                        onBackClick = { standingsLeague = null }
-                                    )
-                                }
-
-                                showBetSlip -> {
-                                    BetSlipScreen(
-                                        onBackClick = { showBetSlip = false }
-                                    )
-                                }
-
-                                selectedMatch != null -> {
-                                    MatchDetailScreen(
-                                        match = selectedMatch!!,
-                                        onBackClick = { selectedMatch = null },
-                                        onOpenBetSlip = { showBetSlip = true },
-                                        onStandingsClick = { match ->
-                                            match.league?.let { standingsLeague = it }
-                                        }
-                                    )
-                                }
-
-                                currentScreen == "settings" -> {
-                                    SettingsScreen(
-                                        themeMode = themeMode,
-                                        accentKey = accentKey,
-                                        onThemeModeChanged = { themeMode = it },
-                                        onAccentChanged = { accentKey = it },
-                                        onApiKeySaved = {
-                                            viewModel.load(
-                                                isBackground = false,
-                                                preferToday = false
-                                            )
-                                        }
-                                    )
-                                }
-
-                                ui.isLoading && ui.matches.isEmpty() && ui.todayMatches.isEmpty() -> {
-                                    SkeletonMatchList(count = 7)
-                                }
-
-                                ui.errorMessage != null && currentScreen != "settings" -> {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(24.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.Center
-                                    ) {
-                                        Text(text = ui.errorMessage!!)
-                                        Spacer(modifier = Modifier.padding(8.dp))
-                                        Button(
-                                            onClick = {
+                        NavHost(
+                            navController = navController,
+                            startDestination = AppScreen.Home.route,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            composable(AppScreen.Home.route) {
+                                when {
+                                    ui.isLoading && ui.matches.isEmpty() && ui.todayMatches.isEmpty() -> {
+                                        SkeletonMatchList(count = 7)
+                                    }
+                                    ui.errorMessage != null -> {
+                                        ErrorPane(
+                                            message = ui.errorMessage!!,
+                                            onRetry = {
                                                 viewModel.load(
                                                     isBackground = false,
-                                                    preferToday = currentScreen == "live"
+                                                    preferToday = false
                                                 )
+                                            },
+                                            onSettings = {
+                                                navController.navigate(AppScreen.Settings.route)
                                             }
-                                        ) {
-                                            Text("Újrapróbálkozás")
-                                        }
-                                        Spacer(modifier = Modifier.padding(4.dp))
-                                        Button(
-                                            onClick = { currentScreen = "settings" }
-                                        ) {
-                                            Text("Beállítások")
-                                        }
+                                        )
+                                    }
+                                    else -> {
+                                        HomeScreen(
+                                            matches = ui.matches,
+                                            selectedDate = ui.selectedDate,
+                                            onDateSelected = viewModel::setSelectedDate,
+                                            favoriteTeamIds = ui.favoriteTeamIds,
+                                            favoriteLeagueIds = ui.favoriteLeagueIds,
+                                            onToggleTeamFavorite = viewModel::toggleTeamFavorite,
+                                            onToggleLeagueFavorite = viewModel::toggleLeagueFavorite,
+                                            showOnlyFavorites = ui.showOnlyFavorites,
+                                            onToggleShowOnlyFavorites = viewModel::toggleShowOnlyFavorites,
+                                            showOnlyLive = ui.showOnlyLive,
+                                            onToggleShowOnlyLive = viewModel::toggleShowOnlyLive,
+                                            isRefreshing = ui.isRefreshing,
+                                            onRefresh = {
+                                                viewModel.refresh(preferToday = false)
+                                            },
+                                            onMatchClick = { match ->
+                                                navController.navigate(
+                                                    AppScreen.MatchDetail.createRoute(match.id)
+                                                )
+                                            },
+                                            onStandingsClick = { match ->
+                                                match.league?.id?.let { lid ->
+                                                    navController.navigate(
+                                                        AppScreen.Standings.createRoute(lid)
+                                                    )
+                                                }
+                                            }
+                                        )
                                     }
                                 }
+                            }
 
-                                currentScreen == "live" -> {
-                                    LiveScreen(
-                                        matches = ui.todayMatches,
-                                        favoriteTeamIds = ui.favoriteTeamIds,
-                                        onToggleTeamFavorite = viewModel::toggleTeamFavorite,
-                                        isRefreshing = ui.isRefreshing,
-                                        onRefresh = {
-                                            viewModel.refresh(preferToday = true)
-                                        },
-                                        onMatchClick = { selectedMatch = it }
-                                    )
+                            composable(AppScreen.Live.route) {
+                                when {
+                                    ui.isLoading && ui.todayMatches.isEmpty() -> {
+                                        SkeletonMatchList(count = 5)
+                                    }
+                                    ui.errorMessage != null && ui.todayMatches.isEmpty() -> {
+                                        ErrorPane(
+                                            message = ui.errorMessage!!,
+                                            onRetry = {
+                                                viewModel.load(
+                                                    isBackground = false,
+                                                    preferToday = true
+                                                )
+                                            },
+                                            onSettings = {
+                                                navController.navigate(AppScreen.Settings.route)
+                                            }
+                                        )
+                                    }
+                                    else -> {
+                                        LiveScreen(
+                                            matches = ui.todayMatches,
+                                            favoriteTeamIds = ui.favoriteTeamIds,
+                                            onToggleTeamFavorite = viewModel::toggleTeamFavorite,
+                                            isRefreshing = ui.isRefreshing,
+                                            onRefresh = {
+                                                viewModel.refresh(preferToday = true)
+                                            },
+                                            onMatchClick = { match ->
+                                                navController.navigate(
+                                                    AppScreen.MatchDetail.createRoute(match.id)
+                                                )
+                                            }
+                                        )
+                                    }
                                 }
+                            }
 
-                                currentScreen == "home" -> {
-                                    HomeScreen(
-                                        matches = ui.matches,
-                                        selectedDate = ui.selectedDate,
-                                        onDateSelected = viewModel::setSelectedDate,
-                                        favoriteTeamIds = ui.favoriteTeamIds,
-                                        favoriteLeagueIds = ui.favoriteLeagueIds,
-                                        onToggleTeamFavorite = viewModel::toggleTeamFavorite,
-                                        onToggleLeagueFavorite = viewModel::toggleLeagueFavorite,
-                                        showOnlyFavorites = ui.showOnlyFavorites,
-                                        onToggleShowOnlyFavorites = viewModel::toggleShowOnlyFavorites,
-                                        showOnlyLive = ui.showOnlyLive,
-                                        onToggleShowOnlyLive = viewModel::toggleShowOnlyLive,
-                                        isRefreshing = ui.isRefreshing,
-                                        onRefresh = {
-                                            viewModel.refresh(preferToday = false)
+                            composable(AppScreen.Highlights.route) {
+                                HighlightsScreen(
+                                    highlights = ui.highlights,
+                                    onHighlightClick = { h ->
+                                        navController.navigate(
+                                            AppScreen.Video.createRoute(h.id.toString())
+                                        )
+                                    }
+                                )
+                            }
+
+                            composable(AppScreen.Settings.route) {
+                                SettingsScreen(
+                                    themeMode = themeMode,
+                                    accentKey = accentKey,
+                                    onThemeModeChanged = { themeMode = it },
+                                    onAccentChanged = { accentKey = it },
+                                    onApiKeySaved = {
+                                        viewModel.load(
+                                            isBackground = false,
+                                            preferToday = false
+                                        )
+                                    }
+                                )
+                            }
+
+                            composable(AppScreen.BetSlip.route) {
+                                BetSlipScreen(
+                                    onBackClick = { navController.popBackStack() }
+                                )
+                            }
+
+                            composable(
+                                route = AppScreen.MatchDetail.route,
+                                arguments = listOf(
+                                    navArgument("matchId") { type = NavType.LongType }
+                                )
+                            ) { entry ->
+                                val matchId = entry.arguments?.getLong("matchId") ?: return@composable
+                                val match = findMatch(ui, matchId)
+                                if (match == null) {
+                                    Box(
+                                        Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            "Meccs betöltése…",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    LaunchedEffect(matchId) {
+                                        viewModel.load(
+                                            isBackground = true,
+                                            preferToday = true
+                                        )
+                                    }
+                                } else {
+                                    MatchDetailScreen(
+                                        match = match,
+                                        onBackClick = { navController.popBackStack() },
+                                        onOpenBetSlip = {
+                                            navController.navigate(AppScreen.BetSlip.route)
                                         },
-                                        onMatchClick = { selectedMatch = it },
-                                        onStandingsClick = { match ->
-                                            match.league?.let { standingsLeague = it }
+                                        onStandingsClick = { m ->
+                                            m.league?.id?.let { lid ->
+                                                navController.navigate(
+                                                    AppScreen.Standings.createRoute(lid)
+                                                )
+                                            }
                                         }
-                                    )
-                                }
-
-                                currentScreen == "highlights" -> {
-                                    HighlightsScreen(
-                                        highlights = ui.highlights,
-                                        onHighlightClick = { selectedHighlight = it }
                                     )
                                 }
                             }
-                        }
-                    }
-                }
 
-                LaunchedEffect(pendingMatchId, ui.matches, ui.todayMatches) {
-                    val id = pendingMatchId ?: return@LaunchedEffect
-                    val found =
-                        ui.todayMatches.find { it.id == id }
-                            ?: ui.matches.find { it.id == id }
-                    if (found != null) {
-                        selectedMatch = found
-                        pendingMatchIdState.value = null
+                            composable(
+                                route = AppScreen.Standings.route,
+                                arguments = listOf(
+                                    navArgument("leagueId") { type = NavType.LongType }
+                                )
+                            ) { entry ->
+                                val leagueId = entry.arguments?.getLong("leagueId") ?: return@composable
+                                val league = findLeague(ui, leagueId)
+                                if (league != null) {
+                                    StandingsScreen(
+                                        league = league,
+                                        onBackClick = { navController.popBackStack() }
+                                    )
+                                } else {
+                                    Box(
+                                        Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            "Tabella nem elérhető",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            composable(
+                                route = AppScreen.Video.route,
+                                arguments = listOf(
+                                    navArgument("highlightId") { type = NavType.StringType }
+                                )
+                            ) { entry ->
+                                val hid = entry.arguments?.getString("highlightId")
+                                val highlight = ui.highlights.find {
+                                    it.id.toString() == hid
+                                }
+                                if (highlight != null) {
+                                    VideoPlayerScreen(
+                                        highlight = highlight,
+                                        onBackClick = { navController.popBackStack() }
+                                    )
+                                } else {
+                                    Box(
+                                        Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            "Videó nem található",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -290,7 +412,38 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@androidx.compose.runtime.Composable
+private fun findMatch(ui: MainUiState, matchId: Long): MatchModel? =
+    ui.todayMatches.find { it.id == matchId }
+        ?: ui.matches.find { it.id == matchId }
+
+private fun findLeague(ui: MainUiState, leagueId: Long): LeagueModel? {
+    val fromToday = ui.todayMatches.mapNotNull { it.league }.find { it.id == leagueId }
+    if (fromToday != null) return fromToday
+    return ui.matches.mapNotNull { it.league }.find { it.id == leagueId }
+}
+
+@Composable
+private fun ErrorPane(
+    message: String,
+    onRetry: () -> Unit,
+    onSettings: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(text = message)
+        Spacer(modifier = Modifier.padding(8.dp))
+        Button(onClick = onRetry) { Text("Újrapróbálkozás") }
+        Spacer(modifier = Modifier.padding(4.dp))
+        Button(onClick = onSettings) { Text("Beállítások") }
+    }
+}
+
+@Composable
 private fun OfflineBanner() {
     Row(
         modifier = Modifier
@@ -299,13 +452,17 @@ private fun OfflineBanner() {
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = "📡", fontSize = 14.sp)
+        Text(
+            text = "Offline mód",
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp,
+            color = AccentGold
+        )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "Offline – legutóbbi mentett adatok",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface
+            text = "Utolsó mentett adatok",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

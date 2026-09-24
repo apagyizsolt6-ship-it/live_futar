@@ -8,8 +8,8 @@ import com.livefutar.app.data.FavoritesManager
 import com.livefutar.app.data.FootballApiService
 import com.livefutar.app.data.HalfTimeScoreCache
 import com.livefutar.app.data.MatchesCache
-import com.livefutar.app.data.NotificationHelper
 import com.livefutar.app.data.PreferencesManager
+import com.livefutar.app.data.ScoreWatchChecker
 import com.livefutar.app.model.HighlightModel
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.util.DateUtils
@@ -269,56 +269,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun checkFavoriteMatchEvents(newMatches: List<MatchModel>) {
-        if (!PreferencesManager.getNotifyFavorites(appContext)) return
-
-        val previous = previousTodayMatchesById
-        val favTeams = FavoritesManager.getFavoriteTeamIds(appContext)
-        if (favTeams.isEmpty()) return
-
-        newMatches.forEach { match ->
-            val homeId = match.homeTeam?.id
-            val awayId = match.awayTeam?.id
-            val isFavoriteMatch =
-                (homeId != null && homeId in favTeams) ||
-                    (awayId != null && awayId in favTeams)
-            if (!isFavoriteMatch) return@forEach
-
-            val prev = previous[match.id] ?: return@forEach
-            val homeName = match.homeTeam?.displayName ?: "Hazai"
-            val awayName = match.awayTeam?.displayName ?: "Vendég"
-
-            if (prev.isNotStarted && match.isLive) {
-                NotificationHelper.notifyKickoff(
-                    appContext,
-                    "⚽ Elkezdődött: $homeName – $awayName",
-                    match.leagueDisplayName,
-                    match.id
-                )
-            }
-
-            val prevHome = prev.homeScoreDisplay.toIntOrNull() ?: 0
-            val prevAway = prev.awayScoreDisplay.toIntOrNull() ?: 0
-            val newHome = match.homeScoreDisplay.toIntOrNull() ?: 0
-            val newAway = match.awayScoreDisplay.toIntOrNull() ?: 0
-
-            if (match.isLive && (newHome > prevHome || newAway > prevAway)) {
-                NotificationHelper.notifyGoal(
-                    appContext,
-                    "⚽ Gól! $homeName $newHome - $newAway $awayName",
-                    match.leagueDisplayName,
-                    match.id
-                )
-            }
-
-            if (prev.isLive && match.isFinished) {
-                NotificationHelper.notifyFullTime(
-                    appContext,
-                    "🏁 Vége: $homeName $newHome - $newAway $awayName",
-                    match.leagueDisplayName,
-                    match.id
-                )
-            }
-        }
+        // Közös checker – ViewModel + WorkManager ugyanazt a logikát használja
+        ScoreWatchChecker.process(appContext, newMatches)
+        previousTodayMatchesById = newMatches.associateBy { it.id }
     }
 }
 
