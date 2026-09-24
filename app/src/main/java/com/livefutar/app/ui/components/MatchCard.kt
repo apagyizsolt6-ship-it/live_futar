@@ -138,14 +138,14 @@ fun MatchCard(
                 ) {
                     TeamRow(
                         logoUrl = match.homeTeam?.logo,
-                        name = match.homeTeam?.name ?: "Hazai",
+                        name = match.homeTeam?.displayName ?: "Hazai",
                         isFavorite = isHomeFavorite,
                         onToggleFavorite = onToggleHomeFavorite
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     TeamRow(
                         logoUrl = match.awayTeam?.logo,
-                        name = match.awayTeam?.name ?: "Vendég",
+                        name = match.awayTeam?.displayName ?: "Vendég",
                         isFavorite = isAwayFavorite,
                         onToggleFavorite = onToggleAwayFavorite
                     )
