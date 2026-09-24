@@ -2,6 +2,7 @@ package com.livefutar.app.ui.navigation
 
 /**
  * Type-safe navigációs útvonalak.
+ * Minden route string literál – nincs companion hivatkozás object <clinit> közben.
  */
 sealed class AppScreen(val route: String) {
     data object Home : AppScreen("home")
@@ -20,11 +21,11 @@ sealed class AppScreen(val route: String) {
     }
 
     companion object {
-        val bottomBarRoutes = setOf(
-            Home.route,
-            Live.route,
-            Highlights.route,
-            Settings.route
-        )
+        const val ROUTE_HOME = "home"
+        const val ROUTE_LIVE = "live"
+        const val ROUTE_HIGHLIGHTS = "highlights"
+        const val ROUTE_SETTINGS = "settings"
+
+        val bottomBarRoutes = setOf("home", "live", "highlights", "settings")
     }
 }
