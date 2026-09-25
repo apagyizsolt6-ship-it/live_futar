@@ -1,6 +1,6 @@
-import androidx.compose.foundation.ExperimentalFoundationApi
 package com.livefutar.app.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -73,7 +73,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-
 
 /*
  * ============================================================
