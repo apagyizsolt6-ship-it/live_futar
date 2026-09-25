@@ -1,7 +1,7 @@
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.lazy.animateItemPlacement
 package com.livefutar.app.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.lazy.animateItemPlacement
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -12,7 +12,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -55,6 +54,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+
+
+
 
 /*
  * ============================================================
@@ -475,7 +477,9 @@ fun HomeScreen(
                             )
                             DropdownMenuItem(
                                 text = {
-                                    Text(if (showOdds) "✓ Odds mutatása" else "Odds mutatása")
+                                    Text(
+                                        if (showOdds) "✓ Odds mutatása" else "Odds mutatása"
+                                    )
                                 },
                                 onClick = {
                                     showOdds = !showOdds
@@ -485,7 +489,8 @@ fun HomeScreen(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        if (showOnlyFavorites) "✓ Csak kedvencek" else "Csak kedvencek"
+                                        if (showOnlyFavorites) "✓ Csak kedvencek"
+                                        else "Csak kedvencek"
                                     )
                                 },
                                 onClick = {
@@ -495,101 +500,9 @@ fun HomeScreen(
                             )
                         }
                     }
-                
-                        colors =
-                            FilterChipDefaults
-                                .filterChipColors(
-                                    selectedContainerColor =
-                                        AccentGreen.copy(
-                                            alpha = 0.25f
-                                        ),
-                                    selectedLabelColor =
-                                        AccentGreen,
-                                    containerColor =
-                                        MaterialTheme
-                                            .colorScheme
-                                            .surfaceVariant,
-                                    labelColor =
-                                        MaterialTheme
-                                            .colorScheme
-                                            .onSurfaceVariant
-                                ),
-                        modifier =
-                            Modifier.padding(
-                                end = 4.dp
-                            )
-                    )
-
-                    /*
-                     * ODDS MUTATÁSA
-                     */
-                    FilterChip(
-                        selected = showOdds,
-                        onClick = { showOdds = !showOdds },
-                        label = {
-                            Text(
-                                text = "💰",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        },
-                        colors =
-                            FilterChipDefaults
-                                .filterChipColors(
-                                    selectedContainerColor =
-                                        AccentGold.copy(alpha = 0.25f),
-                                    selectedLabelColor =
-                                        AccentGold,
-                                    containerColor =
-                                        MaterialTheme
-                                            .colorScheme
-                                            .surfaceVariant,
-                                    labelColor =
-                                        MaterialTheme
-                                            .colorScheme
-                                            .onSurfaceVariant
-                                ),
-                        modifier =
-                            Modifier.padding(
-                                end = 4.dp
-                            )
-                    )
-
-                    /*
-                     * KEDVENCEK
-                     */
-                    Text(
-                        text =
-                            if (
-                                showOnlyFavorites
-                            ) {
-                                "★"
-                            } else {
-                                "☆"
-                            },
-                        fontSize = 22.sp,
-                        color =
-                            if (
-                                showOnlyFavorites
-                            ) {
-                                AccentGold
-                            } else {
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurfaceVariant
-                            },
-                        modifier =
-                            Modifier
-                                .padding(
-                                    end = 14.dp
-                                )
-                                .clickable {
-                                    onToggleShowOnlyFavorites()
-                                }
-                    )
                 },
 
-                colors =
+                                colors =
                     TopAppBarDefaults
                         .topAppBarColors(
                             containerColor =
