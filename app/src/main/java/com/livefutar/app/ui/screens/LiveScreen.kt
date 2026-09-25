@@ -1,3 +1,4 @@
+import androidx.compose.foundation.ExperimentalFoundationApi
 package com.livefutar.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -126,7 +128,7 @@ private data class LiveLeagueGroup(
  * ============================================================
  */
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun LiveScreen(
 
@@ -632,6 +634,7 @@ fun LiveScreen(
                         key = { "fav_${it.id}" }
                     ) { match ->
                         MatchCard(
+                            modifier = Modifier.animateItemPlacement(),
                             match = match,
                             isHomeFavorite = match.homeTeam?.id in favoriteTeamIds,
                             isAwayFavorite = match.awayTeam?.id in favoriteTeamIds,
