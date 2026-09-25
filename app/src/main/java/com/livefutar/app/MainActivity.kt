@@ -448,21 +448,24 @@ private fun OfflineBanner() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(AccentGold.copy(alpha = 0.18f))
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .background(AccentGold.copy(alpha = 0.16f))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "Offline mód",
-            fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
-            color = AccentGold
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "Utolsó mentett adatok",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(text = "📡", fontSize = 16.sp)
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Offline mód",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = AccentGold
+            )
+            Text(
+                text = "Utolsó mentett adatok jelennek meg",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
