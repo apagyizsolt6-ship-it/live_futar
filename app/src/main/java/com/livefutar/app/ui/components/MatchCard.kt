@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
@@ -12,6 +13,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,10 +60,11 @@ import com.livefutar.app.data.BestOdds
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
-import com.livefutar.app.util.Haptics
 import com.livefutar.app.ui.theme.LiveBorder
 import com.livefutar.app.ui.theme.LiveGlow
+import com.livefutar.app.util.Haptics
 import java.util.Locale
+import kotlin.math.abs
 
 private val CardRadius = 14.dp
 
@@ -73,68 +77,77 @@ fun MatchCard(
     onToggleHomeFavorite: () -> Unit,
     onToggleAwayFavorite: () -> Unit,
     oddsSummary: BestOdds? = null,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val isLive = match.isLive
     val shape = RoundedCornerShape(CardRadius)
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.98f else 1f,
+        animationSpec = spring(stiffness = 500f),
+        label = "card-press"
+    )
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .padding(horizontal = 12.dp, vertical = 3.dp)
+            .scale(pressScale)
             .then(
                 if (isLive) {
                     Modifier
                         .border(1.5.dp, LiveBorder, shape)
                         .background(LiveGlow, shape)
-                } else {
-                    Modifier
-                }
+                } else Modifier
             ),
         shape = shape,
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isLive) 3.dp else 1.dp
+            defaultElevation = if (isLive) 4.dp else 1.dp
         ),
         colors = CardDefaults.cardColors(
             containerColor = if (isLive) {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f)
             } else {
                 MaterialTheme.colorScheme.surface
             }
         ),
-        onClick = onClick
+        onClick = onClick,
+        interactionSource = interaction
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Élő bal sáv
-            if (isLive) {
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .height(88.dp)
-                        .background(
-                            brush = Brush.verticalGradient(
-                                listOf(AccentGreen, AccentGreen.copy(alpha = 0.4f))
-                            ),
-                            shape = RoundedCornerShape(topStart = CardRadius, bottomStart = CardRadius)
+            // Élő zöld sáv + glow
+            Box(
+                modifier = Modifier
+                    .width(if (isLive) 4.dp else 0.dp)
+                    .height(76.dp)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            listOf(AccentGreen, AccentGreen.copy(alpha = 0.35f))
+                        ),
+                        shape = RoundedCornerShape(
+                            topStart = CardRadius,
+                            bottomStart = CardRadius
                         )
-                )
-            }
+                    )
+            )
 
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                StatusBadge(match = match, modifier = Modifier.width(64.dp))
+                StatusBadge(match = match, modifier = Modifier.width(52.dp))
 
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 10.dp)
+                        .padding(horizontal = 8.dp)
                 ) {
                     TeamRow(
                         logoUrl = match.homeTeam?.logo,
@@ -142,7 +155,7 @@ fun MatchCard(
                         isFavorite = isHomeFavorite,
                         onToggleFavorite = onToggleHomeFavorite
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     TeamRow(
                         logoUrl = match.awayTeam?.logo,
                         name = match.awayTeam?.displayName ?: "Vendég",
@@ -153,12 +166,12 @@ fun MatchCard(
 
                 Column(
                     horizontalAlignment = Alignment.End,
-                    modifier = Modifier.width(56.dp)
+                    modifier = Modifier.width(52.dp)
                 ) {
                     if (match.isNotStarted) {
                         Text(
                             text = match.kickoffTime,
-                            fontSize = 16.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -175,7 +188,7 @@ fun MatchCard(
                             matchId = match.id,
                             side = "home"
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         AnimatedScore(
                             score = match.awayScoreDisplay,
                             baseColor = baseColor,
@@ -214,34 +227,29 @@ private fun AnimatedScore(
     matchId: Long,
     side: String
 ) {
-    val haptic = LocalHapticFeedback.current
-    var previous by remember(matchId, side) { mutableStateOf(score) }
+    var prev by remember(matchId, side) { mutableStateOf(score) }
     val scale = remember { Animatable(1f) }
-    var flash by remember { mutableStateOf(false) }
+    val flash by animateColorAsState(
+        targetValue = if (score != prev) AccentGreen else baseColor,
+        animationSpec = tween(400),
+        label = "score-color"
+    )
 
     LaunchedEffect(score) {
-        if (previous != score && previous != "-" && score != "-") {
-            flash = true
-            Haptics.confirm(haptic)
-            scale.snapTo(1f)
-            scale.animateTo(1.35f, animationSpec = spring(dampingRatio = 0.45f, stiffness = 500f))
-            scale.animateTo(1f, animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f))
-            flash = false
+        if (score != prev && prev.isNotBlank()) {
+            scale.snapTo(1.25f)
+            scale.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 400f))
+            prev = score
+        } else {
+            prev = score
         }
-        previous = score
     }
-
-    val color by animateColorAsState(
-        targetValue = if (flash) AccentGold else baseColor,
-        animationSpec = tween(180),
-        label = "scoreColor"
-    )
 
     Text(
         text = score,
-        fontSize = 20.sp,
+        fontSize = 18.sp,
         fontWeight = FontWeight.Bold,
-        color = color,
+        color = flash,
         modifier = Modifier.scale(scale.value)
     )
 }
@@ -254,53 +262,107 @@ private fun TeamRow(
     onToggleFavorite: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val starScale = remember { Animatable(1f) }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
-        if (!logoUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = logoUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-                contentScale = ContentScale.Fit
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            )
-        }
-        Spacer(modifier = Modifier.width(10.dp))
+        TeamAvatar(logoUrl = logoUrl, name = name)
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = name,
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false)
         )
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(4.dp))
         Icon(
             imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
             contentDescription = if (isFavorite) "Kedvenc" else "Kedvencnek jelöl",
-            tint = if (isFavorite) AccentGold else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            tint = if (isFavorite) AccentGold
+            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
             modifier = Modifier
-                .size(20.dp)
+                .size(18.dp)
+                .scale(starScale.value)
                 .clickable {
                     Haptics.tick(haptic)
                     onToggleFavorite()
                 }
         )
+        LaunchedEffect(isFavorite) {
+            starScale.snapTo(1.35f)
+            starScale.animateTo(1f, spring(stiffness = 500f))
+        }
     }
 }
 
+/** Logo, vagy monogram színes körben (hash a névből). */
+@Composable
+fun TeamAvatar(
+    logoUrl: String?,
+    name: String,
+    size: androidx.compose.ui.unit.Dp = 28.dp
+) {
+    if (!logoUrl.isNullOrBlank()) {
+        AsyncImage(
+            model = logoUrl,
+            contentDescription = null,
+            modifier = Modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+            contentScale = ContentScale.Fit
+        )
+    } else {
+        val bg = monogramColor(name)
+        Box(
+            modifier = Modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(bg.copy(alpha = 0.22f))
+                .border(1.dp, bg.copy(alpha = 0.45f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = monogramLetters(name),
+                fontSize = (size.value * 0.38f).sp,
+                fontWeight = FontWeight.Bold,
+                color = bg
+            )
+        }
+    }
+}
+
+private fun monogramLetters(name: String): String {
+    val parts = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    return when {
+        parts.size >= 2 ->
+            parts.take(2).map { it.first().uppercaseChar() }.joinToString("")
+        name.isNotBlank() -> name.take(2).uppercase(Locale.getDefault())
+        else -> "?"
+    }
+}
+
+private fun monogramColor(name: String): Color {
+    val palette = listOf(
+        Color(0xFF42A5F5),
+        Color(0xFF66BB6A),
+        Color(0xFFFFA726),
+        Color(0xFFAB47BC),
+        Color(0xFF26C6DA),
+        Color(0xFFEF5350),
+        Color(0xFF5C6BC0),
+        Color(0xFFEC407A)
+    )
+    val idx = abs(name.hashCode()) % palette.size
+    return palette[idx]
+}
+
+/** Kompakt állapot: – / 1.F / 2.F / Szünet / Vége / ÉLŐ + perc */
 @Composable
 private fun StatusBadge(
     match: MatchModel,
@@ -311,77 +373,86 @@ private fun StatusBadge(
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Center
     ) {
-        if (match.isLive) {
-            val infiniteTransition = rememberInfiniteTransition(label = "live-pulse")
-            val alpha by infiniteTransition.animateFloat(
-                initialValue = 1f,
-                targetValue = 0.35f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(800, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "live-pulse-alpha"
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(AccentGreen.copy(alpha = 0.15f))
-                    .padding(horizontal = 6.dp, vertical = 3.dp)
-            ) {
-                Box(
+        when {
+            match.isLive -> {
+                val infiniteTransition = rememberInfiniteTransition(label = "live-pulse")
+                val alpha by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 0.35f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(800, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "live-a"
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .size(7.dp)
-                        .alpha(alpha)
-                        .clip(CircleShape)
-                        .background(AccentGreen)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(AccentGreen.copy(alpha = 0.15f))
+                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .alpha(alpha)
+                            .clip(CircleShape)
+                            .background(AccentGreen)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = "ÉLŐ",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentGreen
+                    )
+                }
+                match.liveMinuteLabel?.let { minute ->
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = minute,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentGreen
+                    )
+                }
+            }
+            match.isFinished -> {
                 Text(
-                    text = "ÉLŐ",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = AccentGreen,
-                    letterSpacing = 0.4.sp
+                    text = "Vége",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            match.liveMinuteLabel?.let { minute ->
-                Spacer(modifier = Modifier.height(4.dp))
+            match.isNotStarted -> {
                 Text(
-                    text = minute,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = AccentGreen
+                    text = "–",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 )
             }
-        } else if (match.isStaleNotStarted) {
-            Text(
-                text = "FRISSÍTÉS",
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.error,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-            Text(
-                text = "alatt",
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.error,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1
-            )
-        } else {
-            Text(
-                text = match.statusLabel,
-                fontSize = 11.sp,
-                color = if (match.isFinished) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.primary
-                },
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                lineHeight = 14.sp
-            )
+            else -> {
+                val short = shortStatus(match.statusLabel)
+                Text(
+                    text = short,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
+                )
+            }
         }
     }
+}
+
+private fun shortStatus(label: String): String = when {
+    label.contains("1.", ignoreCase = true) || label.contains("First", ignoreCase = true) -> "1.F"
+    label.contains("2.", ignoreCase = true) || label.contains("Second", ignoreCase = true) -> "2.F"
+    label.contains("Félidő", ignoreCase = true) || label.contains("Half", ignoreCase = true) -> "Szünet"
+    label.contains("Hosszabb", ignoreCase = true) || label.contains("Extra", ignoreCase = true) -> "Hossz."
+    label.contains("Büntet", ignoreCase = true) || label.contains("Penalt", ignoreCase = true) -> "11-es"
+    label.contains("FRISSÍT", ignoreCase = true) -> "…"
+    else -> label.take(8)
 }
