@@ -1,3 +1,5 @@
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.lazy.animateItemPlacement
 package com.livefutar.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
@@ -10,6 +12,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -82,6 +85,7 @@ private enum class TimeWindowFilter(val hours: Int) {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     matches: List<MatchModel>,
@@ -445,29 +449,53 @@ fun HomeScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
-
-                    /*
-                     * ÉLŐ
-                     */
-                    FilterChip(
-                        selected =
-                            showOnlyLive,
-                        onClick =
-                            onToggleShowOnlyLive,
-                        label = {
-
-                            Text(
-                                text =
-                                    if (showOnlyLive) {
-                                        "ÉLŐ"
-                                    } else {
-                                        "Élő"
-                                    },
-                                fontSize = 12.sp,
-                                fontWeight =
-                                    FontWeight.Bold
+                    var menuOpen by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "Több",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        },
+                        }
+                        DropdownMenu(
+                            expanded = menuOpen,
+                            onDismissRequest = { menuOpen = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (showOnlyLive) "✓ Csak élő" else "Csak élő"
+                                    )
+                                },
+                                onClick = {
+                                    onToggleShowOnlyLive()
+                                    menuOpen = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(if (showOdds) "✓ Odds mutatása" else "Odds mutatása")
+                                },
+                                onClick = {
+                                    showOdds = !showOdds
+                                    menuOpen = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (showOnlyFavorites) "✓ Csak kedvencek" else "Csak kedvencek"
+                                    )
+                                },
+                                onClick = {
+                                    onToggleShowOnlyFavorites()
+                                    menuOpen = false
+                                }
+                            )
+                        }
+                    }
+                
                         colors =
                             FilterChipDefaults
                                 .filterChipColors(
@@ -823,6 +851,7 @@ fun HomeScreen(
                         key = { "fav_home_${it.id}" }
                     ) { match ->
                         MatchCard(
+                            modifier = Modifier.animateItemPlacement(),
                             match = match,
                             isHomeFavorite = match.homeTeam?.id in favoriteTeamIds,
                             isAwayFavorite = match.awayTeam?.id in favoriteTeamIds,
@@ -1811,7 +1840,7 @@ private fun EmptyState(
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Próbáld meg frissíteni, vagy válts napot",
+                text = "Húzd le a frissítéshez, vagy válassz másik napot",
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 fontSize = 12.sp
             )
@@ -2047,6 +2076,7 @@ private fun MatchCardWithOdds(
  * ============================================================
  */
 
+
 @Composable
 private fun LeagueHeader(
     leagueDisplayName: String,
@@ -2059,235 +2089,87 @@ private fun LeagueHeader(
     onToggleFavorite: () -> Unit,
     onStandingsClick: () -> Unit
 ) {
-
-    Row(
-
-        modifier =
-            Modifier
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    horizontal = 14.dp,
-                    vertical = 8.dp
-                ),
-
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) {
-
-        /*
-         * NYITÁS / ZÁRÁS
-         */
-        Box(
-
-            modifier =
-                Modifier
-                    .size(28.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            8.dp
-                        )
-                    )
-                    .clickable {
-                        onToggleCollapsed()
-                    },
-
-            contentAlignment =
-                Alignment.Center
+                .clickable(onClick = onToggleCollapsed)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-
             Text(
-                text =
-                    if (collapsed) {
-                        "▶"
-                    } else {
-                        "▼"
-                    },
-                fontSize = 11.sp,
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant
-            )
-        }
-
-        /*
-         * ORSZÁG LOGÓ
-         */
-        if (
-            !countryLogo.isNullOrBlank()
-        ) {
-
-            AsyncImage(
-
-                model =
-                    countryLogo,
-
-                contentDescription =
-                    null,
-
-                modifier =
-                    Modifier
-                        .size(17.dp)
-                        .clip(
-                            RoundedCornerShape(
-                                2.dp
-                            )
-                        ),
-
-                contentScale =
-                    ContentScale.Fit
-            )
-
-            Spacer(
-                modifier =
-                    Modifier.width(6.dp)
-            )
-        }
-
-        /*
-         * BAJNOKSÁG LOGÓ
-         */
-        if (
-            !leagueLogo.isNullOrBlank()
-        ) {
-
-            AsyncImage(
-
-                model =
-                    leagueLogo,
-
-                contentDescription =
-                    null,
-
-                modifier =
-                    Modifier
-                        .size(19.dp)
-                        .clip(
-                            CircleShape
-                        ),
-
-                contentScale =
-                    ContentScale.Fit
-            )
-
-            Spacer(
-                modifier =
-                    Modifier.width(8.dp)
-            )
-        }
-
-        /*
-         * BAJNOKSÁG
-         */
-        Column(
-
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .clickable {
-                        onToggleCollapsed()
-                    }
-        ) {
-
-            Text(
-
-                text =
-                    leagueDisplayName,
-
-                fontSize = 13.sp,
-
-                fontWeight =
-                    FontWeight.Bold,
-
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant,
-
-                maxLines = 1,
-
-                overflow =
-                    TextOverflow.Ellipsis
-            )
-
-            Text(
-
-                text =
-                    "$matchCount meccs",
-
+                text = if (collapsed) "▶" else "▼",
                 fontSize = 10.sp,
-
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant
-                        .copy(
-                            alpha =
-                                0.75f
-                        )
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(18.dp)
+            )
+            if (!countryLogo.isNullOrBlank()) {
+                AsyncImage(
+                    model = countryLogo,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    contentScale = ContentScale.Fit
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            if (!leagueLogo.isNullOrBlank()) {
+                AsyncImage(
+                    model = leagueLogo,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Fit
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = leagueDisplayName,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "$matchCount meccs",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = "Tabella",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clickable(onClick = onStandingsClick)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            )
+            Text(
+                text = if (isFavorite) "★" else "☆",
+                fontSize = 18.sp,
+                color = if (isFavorite) AccentGold
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .clickable(onClick = onToggleFavorite)
+                    .padding(start = 4.dp, end = 2.dp)
             )
         }
-
-        /*
-         * TABELLA
-         */
-        Text(
-
-            text =
-                "Tabella",
-
-            fontSize = 12.sp,
-
-            fontWeight =
-                FontWeight.Bold,
-
-            color =
-                MaterialTheme
-                    .colorScheme
-                    .primary,
-
-            modifier =
-                Modifier
-                    .clickable {
-                        onStandingsClick()
-                    }
-                    .padding(
-                        horizontal = 8.dp,
-                        vertical = 8.dp
-                    )
-        )
-
-        /*
-         * KEDVENC BAJNOKSÁG
-         */
-        Text(
-
-            text =
-                if (isFavorite) {
-                    "★"
-                } else {
-                    "☆"
-                },
-
-            fontSize = 17.sp,
-
-            color =
-                if (isFavorite) {
-                    AccentGold
-                } else {
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant
-                },
-
-            modifier =
-                Modifier
-                    .clickable {
-                        onToggleFavorite()
-                    }
-                    .padding(
-                        start = 4.dp
-                    )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp)
+                .height(1.dp)
+                .background(
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                )
         )
     }
 }
+
+
+
