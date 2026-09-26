@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -228,6 +229,14 @@ fun MatchDetailScreen(
                 },
 
                 actions = {
+                    val ctx = LocalContext.current
+                    IconButton(onClick = { ShareMatch.share(ctx, match) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Share,
+                            contentDescription = "Megosztás",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
                     if (match.league?.id != null) {
                         Text(

@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import com.livefutar.app.util.Haptics
+import com.livefutar.app.util.LeaguePriority
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +50,7 @@ import com.livefutar.app.ui.components.PullRefreshBox
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
 import com.livefutar.app.util.DateUtils
+import com.livefutar.app.data.SearchHistoryManager
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -351,39 +353,16 @@ fun HomeScreen(
                 )
             }
             .sortedWith(
-
                 compareBy<LeagueGroup> {
-
-                    /*
-                     * Friendlies mindig utolsó.
-                     */
-                    if (
-                        isFriendlyLeague(
-                            it.displayName
-                        )
-                    ) {
-                        1
-                    } else {
-                        0
-                    }
-
+                    // Barátságos meccsek a végére
+                    if (isFriendlyLeague(it.displayName)) 1 else 0
                 }.thenBy {
-
-                    /*
-                     * ORSZÁG ABC
-                     */
-                    normalizeForSort(
-                        it.countryName
-                    )
-
+                    // Top bajnokságok előre (BL, Premier, NB I, …)
+                    LeaguePriority.rank(it.displayName)
                 }.thenBy {
-
-                    /*
-                     * BAJNOKSÁG ABC
-                     */
-                    normalizeForSort(
-                        it.displayName
-                    )
+                    normalizeForSort(it.countryName)
+                }.thenBy {
+                    normalizeForSort(it.displayName)
                 }
             )
 
@@ -564,19 +543,56 @@ fun HomeScreen(
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically()
                 ) {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 6.dp),
-                        placeholder = {
-                            Text("Csapat vagy bajnokság keresése…", fontSize = 13.sp)
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
-                    )
+                    val ctx = LocalContext.current
+                    var history by remember {
+                        mutableStateOf(SearchHistoryManager.get(ctx))
+                    }
+                    Column {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 6.dp),
+                            placeholder = {
+                                Text("Csapat vagy bajnokság keresése…", fontSize = 13.sp)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                                onSearch = {
+                                    SearchHistoryManager.add(ctx, searchQuery)
+                                    history = SearchHistoryManager.get(ctx)
+                                },
+                                onDone = {
+                                    SearchHistoryManager.add(ctx, searchQuery)
+                                    history = SearchHistoryManager.get(ctx)
+                                }
+                            ),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                imeAction = androidx.compose.ui.text.input.ImeAction.Search
+                            )
+                        )
+                        if (history.isNotEmpty() && searchQuery.isBlank()) {
+                            LazyRow(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(history) { q ->
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = { searchQuery = q },
+                                        label = {
+                                            Text(q, fontSize = 12.sp, maxLines = 1)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
