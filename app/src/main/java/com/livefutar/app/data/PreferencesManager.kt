@@ -5,14 +5,14 @@ import android.content.SharedPreferences
 
 object PreferencesManager {
     private const val PREF_NAME = "live_futar_prefs"
-    private const val KEY_THEME_MODE = "theme_mode"       // system | light | dark
-    private const val KEY_ACCENT = "accent_color"         // blue | green | gold | purple | orange
+    private const val KEY_THEME_MODE = "theme_mode"
+    private const val KEY_ACCENT = "accent_color"
     private const val KEY_NOTIFY_FAVORITES = "notify_favorites"
+    private const val KEY_TOP_LEAGUES_ONLY = "top_leagues_only"
 
     private fun getPrefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
-    /** Alapértelmezett: sötét (foci app hangulat). */
     fun getThemeMode(context: Context): String =
         getPrefs(context).getString(KEY_THEME_MODE, "dark") ?: "dark"
 
@@ -32,5 +32,12 @@ object PreferencesManager {
 
     fun setNotifyFavorites(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_NOTIFY_FAVORITES, enabled).apply()
+    }
+
+    fun getTopLeaguesOnly(context: Context): Boolean =
+        getPrefs(context).getBoolean(KEY_TOP_LEAGUES_ONLY, false)
+
+    fun setTopLeaguesOnly(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_TOP_LEAGUES_ONLY, enabled).apply()
     }
 }
