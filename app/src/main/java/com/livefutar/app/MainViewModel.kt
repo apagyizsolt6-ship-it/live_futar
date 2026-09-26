@@ -14,6 +14,7 @@ import com.livefutar.app.model.HighlightModel
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.util.DateUtils
 import com.livefutar.app.widget.LiveFutarWidgetUpdater
+import com.livefutar.app.worker.LiveMatchWorkScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -257,7 +258,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } else if (!isBackground) {
                 _ui.update {
                     it.copy(
-                        errorMessage = "Hiba történt az adatok betöltésekor: ${e.localizedMessage}",
+                        errorMessage = when {
+                            e is java.net.UnknownHostException ||
+                                e is java.net.ConnectException ||
+                                e.message?.contains("Unable to resolve host", true) == true ->
+                                "Nincs internetkapcsolat. Az offline cache jelenik meg, ha van."
+                            e.message?.contains("401", true) == true ||
+                                e.message?.contains("403", true) == true ->
+                                "Érvénytelen API kulcs. Ellenőrizd a Beállításokban."
+                            e.message?.contains("429", true) == true ->
+                                "Túl sok kérés. Próbáld pár perc múlva."
+                            e.message?.contains("timeout", true) == true ->
+                                "Időtúllépés. Húzd le a frissítéshez."
+                            else ->
+                                "Nem sikerült betölteni a meccseket. Húzd le az újrapróbáláshoz."
+                        },
                         isLoading = false,
                         isRefreshing = false
                     )
@@ -272,6 +287,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Közös checker – ViewModel + WorkManager ugyanazt a logikát használja
         ScoreWatchChecker.process(appContext, newMatches)
         previousTodayMatchesById = newMatches.associateBy { it.id }
+        if (newMatches.any { it.isLive }) {
+            LiveMatchWorkScheduler.scheduleLiveBurst(appContext)
+        }
     }
 }
 
