@@ -3,7 +3,7 @@ package com.livefutar.app.util
 import android.content.Context
 import android.content.Intent
 import com.livefutar.app.model.MatchModel
-
+import com.livefutar.app.util.ShareMatch
 /**
  * Meccs megosztása rendszer Share sheet-tel.
  */
