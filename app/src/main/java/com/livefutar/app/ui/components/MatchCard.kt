@@ -10,9 +10,11 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -68,7 +70,7 @@ import kotlin.math.abs
 
 private val CardRadius = 14.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MatchCard(
     match: MatchModel,
@@ -78,6 +80,7 @@ fun MatchCard(
     onToggleAwayFavorite: () -> Unit,
     oddsSummary: BestOdds? = null,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isLive = match.isLive
@@ -95,6 +98,12 @@ fun MatchCard(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 3.dp)
             .scale(pressScale)
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .then(
                 if (isLive) {
                     Modifier
@@ -112,9 +121,7 @@ fun MatchCard(
             } else {
                 MaterialTheme.colorScheme.surface
             }
-        ),
-        onClick = onClick,
-        interactionSource = interaction
+        )
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
