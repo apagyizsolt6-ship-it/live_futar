@@ -70,6 +70,31 @@ object HungarianNames {
         "Andorra" to "Andorra",
         "San Marino" to "San Marino",
         "Faroe Islands" to "Feröer-szigetek",
+
+        "Republic of Ireland" to "Írország",
+        "Rep of Ireland" to "Írország",
+        "Rep. of Ireland" to "Írország",
+        "Northern Ireland" to "Észak-Írország",
+        "N. Ireland" to "Észak-Írország",
+        "Bosnia & Herzegovina" to "Bosznia-Hercegovina",
+        "Bosnia-Herzegovina" to "Bosznia-Hercegovina",
+        "North Macedonia" to "Észak-Macedónia",
+        "FYR Macedonia" to "Észak-Macedónia",
+        "Macedonia" to "Észak-Macedónia",
+        "Faroe Islands" to "Feröer-szigetek",
+        "Faeroe Islands" to "Feröer-szigetek",
+        "Czech Republic" to "Csehország",
+        "Czechia" to "Csehország",
+        "The Netherlands" to "Hollandia",
+        "Holland" to "Hollandia",
+        "USA" to "USA",
+        "United States" to "USA",
+        "South Korea" to "Dél-Korea",
+        "Korea Republic" to "Dél-Korea",
+        "Ivory Coast" to "Elefántcsontpart",
+        "Côte d'Ivoire" to "Elefántcsontpart",
+        "Cote d'Ivoire" to "Elefántcsontpart",
+
         "Gibraltar" to "Gibraltár",
         // Afrika / Ázsia / Amerika
         "Saudi Arabia" to "Szaúd-Arábia",
@@ -559,7 +584,30 @@ object HungarianNames {
 
     fun team(name: String?): String {
         if (name.isNullOrBlank()) return "Ismeretlen"
-        return lookup(teams, name) ?: name
+        lookup(teams, name)?.let { return it }
+        // Válogatottak gyakran országnévként jönnek az API-ból
+        lookup(countries, name)?.let { return it }
+        // pl. "England U21", "Spain W" → előtag fordítása
+        val trimmed = name.trim()
+        val suffixMatch = Regex(
+            """^(.+?)\s*(U\d+|W|Women|Men|National Team|NT)$""",
+            RegexOption.IGNORE_CASE
+        ).find(trimmed)
+        if (suffixMatch != null) {
+            val base = suffixMatch.groupValues[1].trim()
+            val suffix = suffixMatch.groupValues[2].trim()
+            val huBase = lookup(teams, base) ?: lookup(countries, base)
+            if (huBase != null) {
+                val huSuffix = when {
+                    suffix.startsWith("U", ignoreCase = true) -> suffix.uppercase()
+                    suffix.equals("W", true) || suffix.equals("Women", true) -> "Női"
+                    suffix.equals("Men", true) -> "Férfi"
+                    else -> suffix
+                }
+                return "$huBase $huSuffix"
+            }
+        }
+        return name
     }
 
     fun display(countryName: String?, leagueName: String?): String {
