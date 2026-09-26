@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import com.livefutar.app.util.Haptics
 import com.livefutar.app.util.LeaguePriority
+import com.livefutar.app.util.ShareMatch
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -789,7 +790,10 @@ fun HomeScreen(
                             onToggleAwayFavorite = {
                                 match.awayTeam?.id?.let(onToggleTeamFavorite)
                             },
-                            onClick = { onMatchClick(match) }
+                            onClick = { onMatchClick(match) },
+                            onLongClick = {
+                                ShareMatch.share(context, match)
+                            }
                         )
                     }
                     item(key = "fav_home_spacer") {
@@ -929,10 +933,10 @@ fun HomeScreen(
                                 },
 
                                 onClick = {
-
-                                    onMatchClick(
-                                        match
-                                    )
+                                    onMatchClick(match)
+                                },
+                                onLongClick = {
+                                    ShareMatch.share(context, match)
                                 }
                             )
                         }
@@ -1944,7 +1948,8 @@ private fun MatchCardWithOdds(
     isAwayFavorite: Boolean,
     onToggleHomeFavorite: () -> Unit,
     onToggleAwayFavorite: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null
 ) {
 
     LaunchedEffect(match.id, showOdds) {
@@ -1994,7 +1999,8 @@ private fun MatchCardWithOdds(
         onToggleHomeFavorite = onToggleHomeFavorite,
         onToggleAwayFavorite = onToggleAwayFavorite,
         oddsSummary = if (showOdds) OddsCache.get(match.id) else null,
-        onClick = onClick
+        onClick = onClick,
+        onLongClick = onLongClick
     )
 }
 

@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +66,7 @@ import coil.compose.AsyncImage
 import com.livefutar.app.model.MatchModel
 import com.livefutar.app.ui.components.LivePulseDot
 import com.livefutar.app.ui.components.MatchCard
+import com.livefutar.app.util.ShareMatch
 import com.livefutar.app.ui.components.PullRefreshBox
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
@@ -144,6 +146,8 @@ fun LiveScreen(
     onMatchClick: (MatchModel) -> Unit
 
 ) {
+    val context = LocalContext.current
+
 
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -643,7 +647,8 @@ fun LiveScreen(
                             onToggleAwayFavorite = {
                                 match.awayTeam?.id?.let(onToggleTeamFavorite)
                             },
-                            onClick = { onMatchClick(match) }
+                            onClick = { onMatchClick(match) },
+                            onLongClick = { ShareMatch.share(context, match) }
                         )
                     }
                     item(key = "fav_spacer") {
@@ -830,11 +835,10 @@ fun LiveScreen(
                                  */
 
                                 onClick = {
-
-                                    onMatchClick(
-                                        match
-                                    )
-
+                                    onMatchClick(match)
+                                },
+                                onLongClick = {
+                                    ShareMatch.share(context, match)
                                 }
                             )
                         }
