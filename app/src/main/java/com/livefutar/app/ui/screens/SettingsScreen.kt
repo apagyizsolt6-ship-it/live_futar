@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.livefutar.app.data.ApiKeyManager
 import com.livefutar.app.data.PreferencesManager
+import com.livefutar.app.data.SearchHistoryManager
 import com.livefutar.app.ui.theme.AccentBlue
 import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
@@ -45,6 +46,10 @@ fun SettingsScreen(
     var notifyFavorites by remember {
         mutableStateOf(PreferencesManager.getNotifyFavorites(context))
     }
+    var topLeaguesOnly by remember {
+        mutableStateOf(PreferencesManager.getTopLeaguesOnly(context))
+    }
+    var historyCleared by remember { mutableStateOf(false) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -240,6 +245,61 @@ fun SettingsScreen(
                 )
             }
 
+            SectionLabel("Lista")
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Csak top bajnokságok",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "BL, top 5 liga, NB I és erős bajnokságok",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = topLeaguesOnly,
+                            onCheckedChange = { checked ->
+                                topLeaguesOnly = checked
+                                PreferencesManager.setTopLeaguesOnly(context, checked)
+                            }
+                        )
+                    }
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    TextButton(
+                        onClick = {
+                            SearchHistoryManager.clear(context)
+                            historyCleared = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("Keresési előzmények törlése")
+                    }
+                    if (historyCleared) {
+                        Text(
+                            text = "✓ Előzmények törölve",
+                            color = AccentGreen,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
+                        )
+                    }
+                }
+            }
+
             SectionLabel("Névjegy")
             Card(
                 shape = RoundedCornerShape(16.dp),
@@ -249,7 +309,7 @@ fun SettingsScreen(
                     Text("Live Futár", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Verzió 1.9 · Prémium élő eredmények",
+                        "Verzió 1.9.2 · Prémium élő eredmények",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

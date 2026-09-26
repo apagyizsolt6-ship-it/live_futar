@@ -52,6 +52,7 @@ import com.livefutar.app.ui.theme.AccentGold
 import com.livefutar.app.ui.theme.AccentGreen
 import com.livefutar.app.util.DateUtils
 import com.livefutar.app.data.SearchHistoryManager
+import com.livefutar.app.data.PreferencesManager
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -121,6 +122,7 @@ fun HomeScreen(
         mutableStateOf(TimeWindowFilter.NONE)
     }
 
+
     var searchExpanded by rememberSaveable {
         mutableStateOf(false)
     }
@@ -134,6 +136,9 @@ fun HomeScreen(
     }
 
     val context = LocalContext.current
+    var topLeaguesOnly by remember {
+        mutableStateOf(PreferencesManager.getTopLeaguesOnly(context))
+    }
     val apiService = remember { FootballApiService.create() }
 
     /*
@@ -220,6 +225,15 @@ fun HomeScreen(
                         kickoff >= nowMillis &&
                         kickoff <= untilMillis
                 }
+            }
+        }
+
+        /*
+         * CSAK TOP BAJNOKSÁGOK
+         */
+        if (topLeaguesOnly) {
+            result = result.filter {
+                LeaguePriority.rank(it.leagueDisplayName) < 100
             }
         }
 
@@ -474,6 +488,19 @@ fun HomeScreen(
                                 },
                                 onClick = {
                                     onToggleShowOnlyFavorites()
+                                    menuOpen = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (topLeaguesOnly) "✓ Csak top ligák"
+                                        else "Csak top ligák"
+                                    )
+                                },
+                                onClick = {
+                                    topLeaguesOnly = !topLeaguesOnly
+                                    PreferencesManager.setTopLeaguesOnly(context, topLeaguesOnly)
                                     menuOpen = false
                                 }
                             )
