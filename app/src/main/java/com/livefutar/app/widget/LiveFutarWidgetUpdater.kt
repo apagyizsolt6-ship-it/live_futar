@@ -132,6 +132,12 @@ object LiveFutarWidgetUpdater {
 
         views.setViewVisibility(R.id.widget_empty_message, View.GONE)
 
+        val liveN = favoriteMatches.count { it.isLive }
+        views.setTextViewText(
+            R.id.widget_title,
+            if (liveN > 0) "LIVE FUTÁR · ÉLŐ $liveN" else "LIVE FUTÁR ⚽"
+        )
+
         val rowIds = listOf(
             Triple(R.id.widget_row_1, R.id.widget_dot_1, R.id.widget_match_1 to R.id.widget_score_1),
             Triple(R.id.widget_row_2, R.id.widget_dot_2, R.id.widget_match_2 to R.id.widget_score_2),
